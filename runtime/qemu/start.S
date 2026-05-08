@@ -2,7 +2,13 @@
 .globl _start
 _start:
     la sp, _stack_top
+
     call _clear_bss
+
+    # 开启 FPU
+    li t0, 0x00002000
+    csrs mstatus, t0
+
     call _init
     j _exit
 

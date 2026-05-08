@@ -28,10 +28,7 @@ static void print_int(int n) {
     }
 }
 
-int printf(const char *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-
+static void vprintf_impl(const char *fmt, va_list args) {
     while (*fmt) {
         if (*fmt == '%') {
             fmt++;
@@ -49,7 +46,7 @@ int printf(const char *fmt, ...) {
                 putchar('%');
                 break;
             case '\0':
-                goto done;
+                return;
             default:
                 putchar('%');
                 putchar(*fmt);
@@ -60,8 +57,21 @@ int printf(const char *fmt, ...) {
         }
         fmt++;
     }
+}
 
-done:
+int printf(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    vprintf_impl(fmt, args);
+    va_end(args);
+    return 0;
+}
+
+int fprintf(void *stream, const char *fmt, ...) {
+    (void)stream;
+    va_list args;
+    va_start(args, fmt);
+    vprintf_impl(fmt, args);
     va_end(args);
     return 0;
 }
