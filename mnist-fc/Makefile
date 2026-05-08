@@ -1,3 +1,3 @@
 NAME = mnist-fc
-SRCS = main-cli.c model.c
+SRCS = main-test.c model.c
 include ../runtime/Makefile
