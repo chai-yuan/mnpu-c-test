@@ -1,0 +1,11 @@
+build/
+*.o
+*.d
+*.bin
+*.pt
+*.pyc
+__pycache__/
+.cache/
+data/
+out/
+compile_commands.json
