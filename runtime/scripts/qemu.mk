@@ -9,10 +9,10 @@ SRCS    += $(wildcard $(RUNTIME_DIR)/tinylibc/src/*.c)
 LDFLAGS += -T$(RUNTIME_DIR)/qemu/qemu.ld -nostdlib
 
 QEMU = qemu-system-riscv32
-QEMU_FLAGS = -M virt -nographic -bios
+QEMU_FLAGS = -machine virt -nographic 
 
 run: $(IMAGE)
 	@echo "  QEMU  $(notdir $(IMAGE))"
-	@$(QEMU) $(QEMU_FLAGS) $(IMAGE)
+	@$(QEMU) $(QEMU_FLAGS) -bios $(IMAGE)
 
 .PHONY: run
