@@ -16,13 +16,17 @@ RUNTIME_DIR := $(realpath $(dir $(lastword $(MAKEFILE_LIST))))
 
 SRCS 	+= $(wildcard $(RUNTIME_DIR)/lib/*.c)
 CFLAGS  += -I$(PROJ_DIR) -I$(RUNTIME_DIR)
+LDFLAGS +=
+
 IMAGE   := $(DST_DIR)/$(NAME)
 DUMP    := $(IMAGE).dump
+BIN     := $(IMAGE).bin
 
 CC 	    ?= gcc
 OBJDUMP ?= objdump
+OBJCOPY ?= objcopy
 
-all: $(IMAGE) $(DUMP)
+all: $(IMAGE) $(DUMP) $(BIN)
 .PHONY: all
 
 include $(RUNTIME_DIR)/scripts/$(ARCH).mk
@@ -44,6 +48,10 @@ $(IMAGE): $(OBJS)
 $(DUMP): $(IMAGE)
 	@echo "  DUMP  $(notdir $@)"
 	@$(OBJDUMP) -d $< > $@
+
+$(BIN): $(IMAGE)
+	@echo "  BIN   $(notdir $@)"
+	@$(OBJCOPY) -O binary $< $@
 
 clean:
 	rm -rf $(PROJ_DIR)/build/
