@@ -1,11 +1,10 @@
 #include <stddef.h>
 
 unsigned long strtoul(const char *nptr, char **endptr, int base) {
-    const char *s = nptr;
+    const char   *s      = nptr;
     unsigned long result = 0;
 
-    while (*s == ' ' || *s == '\t' || *s == '\n' ||
-           *s == '\r' || *s == '\f' || *s == '\v') {
+    while (*s == ' ' || *s == '\t' || *s == '\n' || *s == '\r' || *s == '\f' || *s == '\v') {
         s++;
     }
 

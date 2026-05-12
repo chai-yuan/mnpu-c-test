@@ -4,7 +4,7 @@
 #define UART_THR 0
 #define UART_LSR 5
 #define UART_LSR_THRE (1 << 5)
-#define UART_LSR_DR   (1 << 0)
+#define UART_LSR_DR (1 << 0)
 
 static void uart_putchar(char c) {
     volatile char *uart = (volatile char *)UART_BASE;

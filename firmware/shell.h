@@ -8,16 +8,14 @@
 typedef void (*shell_cmd_handler_t)(int argc, char *argv[]);
 
 typedef struct {
-    const char *name;
+    const char         *name;
     shell_cmd_handler_t handler;
-    const char *help;
+    const char         *help;
 } shell_command_t;
 
 void shell_init(void);
 
-int shell_register_command(const char *name,
-                           shell_cmd_handler_t handler,
-                           const char *help);
+int shell_register_command(const char *name, shell_cmd_handler_t handler, const char *help);
 
 void shell_run(void);
 

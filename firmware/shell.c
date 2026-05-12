@@ -4,22 +4,18 @@
 #include <stddef.h>
 
 static shell_command_t command_table[SHELL_MAX_COMMANDS];
-static int command_count = 0;
+static int             command_count = 0;
 
 static int shell_exit_request = 0;
 
-void shell_init(void)
-{
-    command_count = 0;
+void shell_init(void) {
+    command_count      = 0;
     shell_exit_request = 0;
     shell_register_command("help", shell_cmd_help, "Show available commands");
     shell_register_command("exit", shell_cmd_exit, "Exit shell (also Ctrl+D)");
 }
 
-int shell_register_command(const char *name,
-                           shell_cmd_handler_t handler,
-                           const char *help)
-{
+int shell_register_command(const char *name, shell_cmd_handler_t handler, const char *help) {
     if (command_count >= SHELL_MAX_COMMANDS) {
         return -1;
     }
@@ -27,33 +23,32 @@ int shell_register_command(const char *name,
     for (int i = 0; i < command_count; i++) {
         if (strcmp(command_table[i].name, name) == 0) {
             command_table[i].handler = handler;
-            command_table[i].help = help;
+            command_table[i].help    = help;
             return 0;
         }
     }
 
-    command_table[command_count].name = name;
+    command_table[command_count].name    = name;
     command_table[command_count].handler = handler;
-    command_table[command_count].help = help;
+    command_table[command_count].help    = help;
     command_count++;
     return 0;
 }
 
-static int shell_parse_line(char *line, int *argc, char *argv[])
-{
-    int count = 0;
+static int shell_parse_line(char *line, int *argc, char *argv[]) {
+    int count    = 0;
     int in_token = 0;
 
     while (*line != '\0' && count < SHELL_MAX_ARGS) {
         if (*line == ' ' || *line == '\t') {
             if (in_token) {
-                *line = '\0';
+                *line    = '\0';
                 in_token = 0;
             }
         } else {
             if (!in_token) {
                 argv[count++] = line;
-                in_token = 1;
+                in_token      = 1;
             }
         }
         line++;
@@ -62,11 +57,10 @@ static int shell_parse_line(char *line, int *argc, char *argv[])
     return count;
 }
 
-void shell_run(void)
-{
-    char input_line[SHELL_LINE_MAX];
+void shell_run(void) {
+    char  input_line[SHELL_LINE_MAX];
     char *argv[SHELL_MAX_ARGS];
-    int argc;
+    int   argc;
 
     printf("\nMiniShell (type 'help' for commands)\n");
     while (!shell_exit_request) {
@@ -105,8 +99,7 @@ void shell_run(void)
     }
 }
 
-void shell_cmd_help(int argc, char *argv[])
-{
+void shell_cmd_help(int argc, char *argv[]) {
     (void)argc;
     (void)argv;
     printf("Available commands:\n");
@@ -119,8 +112,7 @@ void shell_cmd_help(int argc, char *argv[])
     }
 }
 
-void shell_cmd_exit(int argc, char *argv[])
-{
+void shell_cmd_exit(int argc, char *argv[]) {
     (void)argc;
     (void)argv;
     shell_exit_request = 1;

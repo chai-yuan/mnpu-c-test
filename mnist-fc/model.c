@@ -4,30 +4,38 @@
 
 int parse_header(const unsigned char *header, Config *config) {
     int offset = 0;
-    int magic = *(int *)(header + offset); offset += sizeof(int);
+    int magic  = *(int *)(header + offset);
+    offset += sizeof(int);
     if (magic != 0x4d4c5046) {
         return -1;
     }
 
-    config->version = *(int *)(header + offset); offset += sizeof(int);
+    config->version = *(int *)(header + offset);
+    offset += sizeof(int);
     if (config->version != 3) {
         return -2;
     }
 
-    config->input_dim = *(int *)(header + offset); offset += sizeof(int);
-    config->output_dim = *(int *)(header + offset); offset += sizeof(int);
-    config->num_layers = *(int *)(header + offset); offset += sizeof(int);
+    config->input_dim = *(int *)(header + offset);
+    offset += sizeof(int);
+    config->output_dim = *(int *)(header + offset);
+    offset += sizeof(int);
+    config->num_layers = *(int *)(header + offset);
+    offset += sizeof(int);
 
     if (config->num_layers > MAX_LAYERS) {
         return -3;
     }
 
     for (int i = 0; i < MAX_LAYERS; i++) {
-        config->layer_out_features[i] = *(int *)(header + offset); offset += sizeof(int);
+        config->layer_out_features[i] = *(int *)(header + offset);
+        offset += sizeof(int);
     }
 
-    config->input_mean = *(float *)(header + offset); offset += sizeof(float);
-    config->input_std  = *(float *)(header + offset); offset += sizeof(float);
+    config->input_mean = *(float *)(header + offset);
+    offset += sizeof(float);
+    config->input_std = *(float *)(header + offset);
+    offset += sizeof(float);
 
     return 0;
 }
@@ -39,12 +47,12 @@ void setup_weights(const Config *config, MLPWeights *weights, float *weights_dat
     weights->in_features  = (int *)arena_alloc(arena, config->num_layers * sizeof(int));
     weights->out_features = (int *)arena_alloc(arena, config->num_layers * sizeof(int));
 
-    float *ptr = weights_data;
-    int prev_out = config->input_dim;
+    float *ptr      = weights_data;
+    int    prev_out = config->input_dim;
 
     for (int i = 0; i < config->num_layers; i++) {
-        int out = config->layer_out_features[i];
-        int in  = prev_out;
+        int out                  = config->layer_out_features[i];
+        int in                   = prev_out;
         weights->in_features[i]  = in;
         weights->out_features[i] = out;
         weights->weight[i]       = ptr;
@@ -115,9 +123,9 @@ void forward(const Config *config, const MLPWeights *w, RunState *s, const float
         matmul_add_bias(s->y, s->x, w->weight[l], w->bias[l], d_in, d_out);
         relu(s->y, d_out);
         float *temp = s->x;
-        s->x = s->y;
-        s->y = temp;
-        d_in = d_out;
+        s->x        = s->y;
+        s->y        = temp;
+        d_in        = d_out;
     }
 
     int last = config->num_layers - 1;

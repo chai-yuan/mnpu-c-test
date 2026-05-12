@@ -6,14 +6,14 @@
  * Usage: main-cli model.bin image.raw
  */
 
+#include "lib/arena.h"
+#include "model.h"
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <fcntl.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#include "lib/arena.h"
-#include "model.h"
 
 static int load_image(const char *filename, float *input, int expected_size, float mean, float std) {
     FILE *f = fopen(filename, "rb");
@@ -39,13 +39,13 @@ static int load_image(const char *filename, float *input, int expected_size, flo
 
     for (int i = 0; i < expected_size; i++) {
         float val = (float)buf[i];
-        input[i] = (val / 255.0f - mean) / std;
+        input[i]  = (val / 255.0f - mean) / std;
     }
     return 0;
 }
 
-static int load_model(const char *filename, Config *config, MLPWeights *weights, RunState *state,
-                      int *fd, float **data, ssize_t *file_size, Arena *arena) {
+static int load_model(const char *filename, Config *config, MLPWeights *weights, RunState *state, int *fd, float **data,
+                      ssize_t *file_size, Arena *arena) {
     FILE *file = fopen(filename, "rb");
     if (!file) {
         fprintf(stderr, "Error: cannot open %s\n", filename);
@@ -63,10 +63,18 @@ static int load_model(const char *filename, Config *config, MLPWeights *weights,
     int ret = parse_header(header, config);
     if (ret != 0) {
         switch (ret) {
-            case -1: fprintf(stderr, "Error: bad magic in model file\n"); break;
-            case -2: fprintf(stderr, "Error: unsupported model version %d (expected 3)\n", config->version); break;
-            case -3: fprintf(stderr, "Error: too many layers %d > %d\n", config->num_layers, MAX_LAYERS); break;
-            default: fprintf(stderr, "Error: failed to parse header (code %d)\n", ret); break;
+        case -1:
+            fprintf(stderr, "Error: bad magic in model file\n");
+            break;
+        case -2:
+            fprintf(stderr, "Error: unsupported model version %d (expected 3)\n", config->version);
+            break;
+        case -3:
+            fprintf(stderr, "Error: too many layers %d > %d\n", config->num_layers, MAX_LAYERS);
+            break;
+        default:
+            fprintf(stderr, "Error: failed to parse header (code %d)\n", ret);
+            break;
         }
         return -1;
     }
@@ -77,7 +85,7 @@ static int load_model(const char *filename, Config *config, MLPWeights *weights,
         return -1;
     }
     *file_size = lseek(*fd, 0, SEEK_END);
-    *data = (float *)mmap(NULL, *file_size, PROT_READ, MAP_PRIVATE, *fd, 0);
+    *data      = (float *)mmap(NULL, *file_size, PROT_READ, MAP_PRIVATE, *fd, 0);
     if (*data == MAP_FAILED) {
         perror("mmap");
         close(*fd);
@@ -99,8 +107,8 @@ static int load_model(const char *filename, Config *config, MLPWeights *weights,
     return 0;
 }
 
-static void free_model_resources(Config *config, MLPWeights *weights, RunState *state,
-                                  int fd, float *data, ssize_t file_size) {
+static void free_model_resources(Config *config, MLPWeights *weights, RunState *state, int fd, float *data,
+                                 ssize_t file_size) {
     (void)config;
     (void)weights;
     (void)state;
@@ -136,7 +144,7 @@ int main(int argc, char *argv[]) {
 
     enum { ARENA_SIZE = 65536 };
     unsigned char arena_buf[ARENA_SIZE];
-    Arena *arena = arena_create(arena_buf, ARENA_SIZE);
+    Arena        *arena = arena_create(arena_buf, ARENA_SIZE);
     if (!arena) {
         fprintf(stderr, "Error: failed to create arena\n");
         return 1;
