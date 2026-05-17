@@ -8,8 +8,8 @@ _start:
     la t0, trap_entry
     csrw mtvec, t0
 
-    # 开启 FPU
-    li t0, 0x00002000
+    # 开启 FPU 和 Vector 
+    li t0, 0x00006600
     csrs mstatus, t0
 
     call _init

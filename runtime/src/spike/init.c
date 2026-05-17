@@ -1,5 +1,7 @@
-#include "port.h"
 #include <stdint.h>
+
+#include "port.h"
+#include "stdio.h"
 
 /* ------------------------------------------------------------------
  * UART output (TX) – works fine on both spike and qemu
@@ -40,37 +42,37 @@ void c_trap_handler(uint32_t mcause, uint32_t mepc, uint32_t mtval) {
     printf("指令发生位置 (mepc)   : 0x%X\n", mepc);
     printf("异常附加信息 (mtval)  : 0x%X\n", mtval);
     printf("异常原因编码 (mcause) : 0x%X\n", mcause);
-    
+
     uint32_t cause_code = mcause & 0x7FFFFFFF;
     printf("错误原因解析: ");
-    
+
     switch (cause_code) {
-        case 2: 
-            printf("非法指令 (Illegal Instruction)!\n"); 
-            break;
-        case 4:
-            printf("加载地址未对齐 (Load address misaligned)!\n");
-            break;
-        case 5: 
-            printf("加载访问错误 (Load access fault)!\n"); 
-            break;
-        case 6:
-            printf("存储地址未对齐 (Store/AMO address misaligned)!\n");
-            break;
-        case 7: 
-            printf("存储访问错误 (Store/AMO access fault)!\n"); 
-            break;
-        case 8:
-        case 9:
-        case 11:
-            printf("环境调用 (Environment Call) - 通常用于系统调用(Syscall)\n");
-            break;
-        default: 
-            printf("未知异常 (代码: %u)\n", cause_code); 
-            break;
+    case 2:
+        printf("非法指令 (Illegal Instruction)!\n");
+        break;
+    case 4:
+        printf("加载地址未对齐 (Load address misaligned)!\n");
+        break;
+    case 5:
+        printf("加载访问错误 (Load access fault)!\n");
+        break;
+    case 6:
+        printf("存储地址未对齐 (Store/AMO address misaligned)!\n");
+        break;
+    case 7:
+        printf("存储访问错误 (Store/AMO access fault)!\n");
+        break;
+    case 8:
+    case 9:
+    case 11:
+        printf("环境调用 (Environment Call) - 通常用于系统调用(Syscall)\n");
+        break;
+    default:
+        printf("未知异常 (代码: %u)\n", cause_code);
+        break;
     }
     printf("=============================================================\n\n");
-    
-    while(1) {
+
+    while (1) {
     }
 }

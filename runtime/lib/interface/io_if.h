@@ -6,9 +6,9 @@
 
 /* 定义标准的错误码 */
 #define IO_OK 0
-#define IO_ERR_GENERIC -1   // 通用错误
-#define IO_ERR_PARAM -2     // 参数错误
-#define IO_ERR_NOT_SUPP -3  // 不支持的操作
+#define IO_ERR_GENERIC -1  // 通用错误
+#define IO_ERR_PARAM -2    // 参数错误
+#define IO_ERR_NOT_SUPP -3 // 不支持的操作
 
 // 读数据到buf中，返回读取的字节数
 typedef int32_t (*io_read_t)(void *self, uint8_t *buf, size_t len);
