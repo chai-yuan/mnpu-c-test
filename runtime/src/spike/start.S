@@ -5,6 +5,9 @@ _start:
 
     call _clear_bss
 
+    la t0, trap_entry
+    csrw mtvec, t0
+
     # 开启 FPU
     li t0, 0x00002000
     csrs mstatus, t0
@@ -32,3 +35,20 @@ _exit:
 _exit_loop:
     wfi
     j _exit_loop
+
+.align 2
+.globl trap_entry
+trap_entry:
+    # 1. mcause (异常原因)
+    # 2. mepc   (发生异常的指令地址)
+    # 3. mtval  (异常附加值，比如非法的指令码，或者越界的内存地址)
+    
+    csrr a0, mcause
+    csrr a1, mepc
+    csrr a2, mtval
+
+    call c_trap_handler
+
+_trap_hang:
+    wfi
+    j _trap_hang

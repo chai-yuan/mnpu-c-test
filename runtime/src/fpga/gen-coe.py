@@ -62,8 +62,8 @@ def main():
     parser = argparse.ArgumentParser(description="将 .bin 转换为 .coe 内存初始化文件")
     parser.add_argument("input", help="输入的 .bin 文件路径")
     parser.add_argument("-o", "--output", help="输出的 .coe 文件路径 (默认与输入同名，扩展名为 .coe)")
-    parser.add_argument("-w", "--width", type=int, default=8,
-                        help="数据宽度（位），默认为 8")
+    parser.add_argument("-w", "--width", type=int, default=32,
+                        help="数据宽度（位），默认为 32")
     parser.add_argument("-e", "--endian", choices=['little', 'big'], default='little',
                         help="字节序，little 或 big，默认为 little")
     args = parser.parse_args()
