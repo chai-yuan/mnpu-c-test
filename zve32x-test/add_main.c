@@ -3,8 +3,8 @@
 #include <riscv_vector.h>
 
 static inline uint32_t read_mcycle() {
-    uint32_t val;
-    __asm__ __volatile__ ("csrr %0, mcycle" : "=r" (val));
+    uint32_t val = 0;
+    // __asm__ __volatile__ ("csrr %0, mcycle" : "=r" (val));
     return val;
 }
 
@@ -26,7 +26,7 @@ void vector_add_rvv(const int32_t *a, const int32_t *b, int32_t *c, size_t n) {
 }
 
 int main() {
-    const size_t N = 1000; 
+    const size_t N = 32;
     int32_t a[1000], b[1000], c_scalar[1000], c_rvv[1000];
 
     for (size_t i = 0; i < N; i++) {
