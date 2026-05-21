@@ -33,10 +33,6 @@ void *Arena_Alloc(Arena handle, size_t size) {
     return ptr;
 }
 
-void *Arena_Free(Arena self, void *ptr) {
-    // NULL
-}
-
 void Arena_Reset(Arena handle) {
     struct Arena *arena = (struct Arena *)handle;
     arena->current      = arena->start;
@@ -45,8 +41,8 @@ void Arena_Reset(Arena handle) {
 memory_if Arena_GetMemoryIf(Arena self) {
     return (memory_if){
         .self            = self,
-        .mem_alloc       = Arena_Alloc,
-        .mem_free        = Arena_Free,
+        .mem_alloc       = (void * (*)(void *, size_t))Arena_Alloc,
+        .mem_free        = NULL,
         .mem_alloc_align = NULL,
     };
 }
