@@ -1,5 +1,16 @@
 #include <stddef.h>
 
+static unsigned long next = 1;
+
+void srand(unsigned int seed) {
+    next = seed;
+}
+
+int rand(void) {
+    next = next * 1103515245 + 12345;
+    return (int)((next / 65536) % 32768);
+}
+
 unsigned long strtoul(const char *nptr, char **endptr, int base) {
     const char   *s      = nptr;
     unsigned long result = 0;

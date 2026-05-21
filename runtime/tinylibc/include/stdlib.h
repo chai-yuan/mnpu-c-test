@@ -5,4 +5,7 @@
 
 unsigned long strtoul(const char *nptr, char **endptr, int base);
 
+void srand(unsigned int seed);
+int rand(void);
+
 #endif
