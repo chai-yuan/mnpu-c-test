@@ -79,7 +79,4 @@ void c_trap_handler(uint32_t mcause, uint32_t mepc, uint32_t mtval) {
         break;
     }
     printf("=============================================================\n\n");
-
-    while (1) {
-    }
 }

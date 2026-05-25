@@ -48,7 +48,4 @@ trap_entry:
     csrr a2, mtval
 
     call c_trap_handler
-
-_trap_hang:
-    wfi
-    j _trap_hang
+    j _exit

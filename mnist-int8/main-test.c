@@ -12,8 +12,7 @@
 #include "out/image.bin.h"
 #include "out/model.bin.h"
 
-static int load_model_from_memory(const unsigned char *data, size_t size,
-                                  Int8Model *model, Arena arena,
+static int load_model_from_memory(const unsigned char *data, size_t size, Int8Model *model, Arena arena,
                                   Int8RunState *state) {
     if (size < (size_t)INT8_HEADER_SIZE) {
         fprintf(stderr, "Error: model data too small\n");
@@ -24,10 +23,18 @@ static int load_model_from_memory(const unsigned char *data, size_t size,
     int ret = int8_parse_header(data, &model->config);
     if (ret != 0) {
         switch (ret) {
-        case -1: fprintf(stderr, "Error: bad magic in model data\n"); break;
-        case -2: fprintf(stderr, "Error: unsupported model version\n"); break;
-        case -3: fprintf(stderr, "Error: too many layers\n");          break;
-        default: fprintf(stderr, "Error: parse header code %d\n", ret);break;
+        case -1:
+            fprintf(stderr, "Error: bad magic in model data\n");
+            break;
+        case -2:
+            fprintf(stderr, "Error: unsupported model version\n");
+            break;
+        case -3:
+            fprintf(stderr, "Error: too many layers\n");
+            break;
+        default:
+            fprintf(stderr, "Error: parse header code %d\n", ret);
+            break;
         }
         return -1;
     }
@@ -59,23 +66,21 @@ int main(void) {
     }
 
     /* Load model */
-    if (load_model_from_memory(model_bin, model_bin_len,
-                               &model, arena, &state) != 0) {
+    if (load_model_from_memory(model_bin, model_bin_len, &model, arena, &state) != 0) {
         return 1;
     }
 
     /* Validate image size */
     if (model.config.input_dim != (int)image_bin_len) {
-        fprintf(stderr, "Error: image size %u != config input_dim %d\n",
-                image_bin_len, model.config.input_dim);
+        fprintf(stderr, "Error: image size %u != config input_dim %d\n", image_bin_len, model.config.input_dim);
         return 1;
     }
 
     /* Run inference (pure integer path) */
-    int8_t output[16];
-    clock_t t0 = clock();
+    int8_t  output[16];
+    clock_t t0   = clock();
     int     pred = int8_forward(&model, &state, (const int8_t *)image_bin, output);
-    clock_t t1 = clock();
+    clock_t t1   = clock();
     printf("%d (%ld us)\n", pred, (long)(t1 - t0));
 
     Arena_Reset(arena);

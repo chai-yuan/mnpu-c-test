@@ -1,4 +1,5 @@
 #include "model.h"
+#include <riscv_vector.h>
 #include <string.h>
 
 /* ==========================================================================
@@ -133,38 +134,95 @@ static int32_t _multiply_by_quant_mult(int32_t x, int32_t quant_mult, int32_t sh
     return _rounding_divide_by_pot(high, right);
 }
 
-/* ==========================================================================
- * Single INT8 Dense layer + TFLite requantize
- * ========================================================================== */
+/*
+ * Widen-int8-to-int16 helpers.
+ *
+ * __riscv_vwadd_vx(…, 0, …) is optimized by GCC to vsext.vf2, which is
+ * NOT legal on Zve32x.  We add a non‑zero offset and then subtract it
+ * back, which the compiler cannot fold into a single vsext.
+ */
+#define WIDEN_DELTA 1 /* any value 1…127, must fit in int8 */
 
+static inline vint16m2_t _widen_i8_to_i16(vint8m1_t v, size_t vl) {
+    vint16m2_t w = __riscv_vwadd_vx_i16m2(v, WIDEN_DELTA, vl);
+    return __riscv_vsub_vx_i16m2(w, WIDEN_DELTA, vl);
+}
+
+static inline vint16m2_t _widen_sub_zp(vint8m1_t v, int16_t zp, size_t vl) {
+    vint16m2_t w = __riscv_vwadd_vx_i16m2(v, WIDEN_DELTA, vl);
+    return __riscv_vsub_vx_i16m2(w, (int16_t)(WIDEN_DELTA + zp), vl);
+}
 static void _int8_dense_layer(const int8_t *input, int32_t z_in, const int8_t *weight, const int32_t *bias,
                               const int32_t *q_mult, const int32_t *q_shift, int32_t z_out, int8_t *output, int in_c,
                               int out_c, int has_relu) {
-    /*
-     * For each output channel c:
-     *   1. dot-product: sum_j (input[j] - z_in) × weight[c*in_c + j]  +  bias[c]
-     *      (全部用 int64 防止溢出)
-     *   2. requantize via MultiplyByQuantizedMultiplier
-     *   3. add z_out, clamp to int8
-     *      - has_relu: clamp to [z_out, 127]  (ReLU fused layer)
-     *      - no relu:  clamp to [-128, 127]
-     */
+    /* ── Fast path: zero-point fits in int16 ─────────────────────────── */
+    if (z_in >= INT16_MIN && z_in <= INT16_MAX) {
+
+        for (int c = 0; c < out_c; c++) {
+            const int8_t *w_row = weight + c * in_c;
+
+            /* Initialize int32 accumulator vector to zero */
+            size_t     vl_max = __riscv_vsetvl_e16m2(in_c);
+            vint32m4_t vacc   = __riscv_vmv_v_x_i32m4(0, vl_max);
+
+            /* ── Vectorized dot-product strip-mining loop ─────────── */
+            {
+                int    j = 0;
+                int    n = in_c;
+                size_t vl;
+                for (; n > 0; n -= vl, j += (int)vl) {
+                    vl = __riscv_vsetvl_e16m2(n);
+
+                    /* input int8 → widen to int16 + adjust zero-point */
+                    vint8m1_t  v_in8  = __riscv_vle8_v_i8m1(input + j, vl);
+                    vint16m2_t v_in16 = _widen_sub_zp(v_in8, (int16_t)z_in, vl);
+
+                    /* weight int8 → widen to int16 (no zero-point) */
+                    vint8m1_t  v_w8  = __riscv_vle8_v_i8m1(w_row + j, vl);
+                    vint16m2_t v_w16 = _widen_i8_to_i16(v_w8, vl);
+
+                    /* Widening MAC:  vacc[i] += v_in16[i] * v_w16[i]  */
+                    vacc = __riscv_vwmacc_vv_i32m4(vacc, v_in16, v_w16, vl);
+                }
+            }
+
+            /* ── Reduce partial sums + bias ──────────────────────── */
+            {
+                int32_t partials[8]; /* enough for VLMAX ≤ 8 */
+                __riscv_vse32_v_i32m4(partials, vacc, vl_max);
+
+                int64_t dot = (int64_t)bias[c];
+                for (int k = 0; k < (int)vl_max; k++) {
+                    dot += (int64_t)partials[k];
+                }
+
+                /* Requantize */
+                int32_t rq  = _multiply_by_quant_mult((int32_t)dot, q_mult[c], q_shift[c]);
+                int32_t val = rq + z_out;
+
+                /* Clamp */
+                int32_t lo = has_relu ? z_out : (int32_t)INT8_MIN;
+                if (val < lo)
+                    val = lo;
+                if (val > INT8_MAX)
+                    val = INT8_MAX;
+                output[c] = (int8_t)val;
+            }
+        }
+
+        return;
+    }
+
+    /* ── Scalar fallback (unlikely: zero-point outside int16 range) ──── */
     for (int c = 0; c < out_c; c++) {
-        /* Dot product */
         int64_t acc = (int64_t)bias[c];
         for (int j = 0; j < in_c; j++) {
             int32_t xv = (int32_t)input[j] - z_in;
             acc += (int64_t)xv * (int64_t)weight[c * in_c + j];
         }
-
-        /* Requantize */
-        int32_t rq = _multiply_by_quant_mult((int32_t)acc, q_mult[c], q_shift[c]);
-
-        /* Add output zero point */
+        int32_t rq  = _multiply_by_quant_mult((int32_t)acc, q_mult[c], q_shift[c]);
         int32_t val = rq + z_out;
-
-        /* Clamp */
-        int32_t lo = has_relu ? z_out : (int32_t)INT8_MIN;
+        int32_t lo  = has_relu ? z_out : (int32_t)INT8_MIN;
         if (val < lo)
             val = lo;
         if (val > INT8_MAX)
