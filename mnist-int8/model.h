@@ -3,6 +3,7 @@
 
 #include "lib/arena.h"
 #include <stdint.h>
+#include <time.h>
 
 // Binary format constants
 #define INT8_MAX_LAYERS 16
@@ -53,6 +54,16 @@ typedef struct {
 } Int8RunState;
 
 // ---------------------------------------------------------------------------
+// Timing breakdown (per-layer clock() ticks)
+// ---------------------------------------------------------------------------
+typedef struct {
+    clock_t per_layer[INT8_MAX_LAYERS]; /* wall time per layer         */
+    clock_t vec_dot[INT8_MAX_LAYERS];   /* vector dot-product time     */
+    clock_t requant[INT8_MAX_LAYERS];   /* reduction + requantize time */
+    int     num_layers;
+} Int8Timing;
+
+// ---------------------------------------------------------------------------
 // API
 // ---------------------------------------------------------------------------
 
@@ -81,13 +92,21 @@ int int8_runstate_init(Int8RunState *state, const Int8Model *model, Arena arena)
  * Run INT8 inference.
  *   input:  int8 array of length model.config.input_dim
  *   output: int8 array of length model.layers[num_layers-1].out_features
+ *   timing: optional (may be NULL). If non-NULL, filled with per-layer /
+ *           per-phase clock() ticks.
  * Returns the predicted class index.
  */
-int int8_forward(const Int8Model *model, Int8RunState *state, const int8_t *input, int8_t *output);
+int int8_forward(const Int8Model *model, Int8RunState *state, const int8_t *input, int8_t *output, Int8Timing *timing);
 
 /**
  * Helper: find argmax in int8 output (skips softmax).
  */
 int int8_argmax(const int8_t *x, int n);
+
+/**
+ * TFLite MultiplyByQuantizedMultiplier (pure-integer int32→int32).
+ * Shared between scalar and vector backends.
+ */
+int32_t _multiply_by_quant_mult(int32_t x, int32_t quant_mult, int32_t shift);
 
 #endif /* MODEL_INT8_H */

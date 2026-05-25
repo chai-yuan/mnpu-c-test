@@ -36,8 +36,8 @@ int main(void);
 
 void _init(void) {
     struct port_functions port = {
-        .putchar = uart_putchar,
-        .getchar = uart_getchar,
+        .putchar  = uart_putchar,
+        .getchar  = uart_getchar,
         .get_time = read_mcycle,
     };
     port_init(port);

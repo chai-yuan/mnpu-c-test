@@ -1,3 +1,4 @@
 NAME = mnist-int8
-SRCS = main-test.c model-zve32x.c
+ACCE ?= soft
+SRCS = main-test.c model.c model-$(ACCE).c
 include ../runtime/Makefile

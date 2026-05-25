@@ -77,11 +77,24 @@ int main(void) {
     }
 
     /* Run inference (pure integer path) */
-    int8_t  output[16];
-    clock_t t0   = clock();
-    int     pred = int8_forward(&model, &state, (const int8_t *)image_bin, output);
-    clock_t t1   = clock();
-    printf("%d (%ld us)\n", pred, (long)(t1 - t0));
+    int8_t     output[16];
+    Int8Timing timing;
+    clock_t    t0   = clock();
+    int        pred = int8_forward(&model, &state, (const int8_t *)image_bin, output, &timing);
+    clock_t    t1   = clock();
+    printf("Prediction: %d  (total %ld us)\n", pred, (long)(t1 - t0));
+    printf("============================================\n");
+    printf("Per-layer breakdown (clock ticks):\n");
+    printf("  %s  %s  %s  %s  %s  %s\n", "Layer", "Total", "VecDot", "Requant", "Dot%", "Req%");
+    for (int i = 0; i < timing.num_layers; i++) {
+        int total = (int)timing.per_layer[i];
+        int vec_d = (int)timing.vec_dot[i];
+        int req   = (int)timing.requant[i];
+        int pct_v = total ? (100 * vec_d / total) : 0;
+        int pct_r = total ? (100 * req / total) : 0;
+        printf("  [%d]     %d  %d  %d  %d %%    %d %%\n", i, total, vec_d, req, pct_v, pct_r);
+    }
+    printf("============================================\n");
 
     Arena_Reset(arena);
     return 0;
