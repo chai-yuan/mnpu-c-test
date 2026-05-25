@@ -5,7 +5,9 @@
 #include "lib/arena.h"
 #include "model.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "out/image.bin.h"
 #include "out/model.bin.h"
@@ -71,8 +73,10 @@ int main(void) {
 
     /* Run inference (pure integer path) */
     int8_t output[16];
-    int    pred = int8_forward(&model, &state, (const int8_t *)image_bin, output);
-    printf("%d\n", pred);
+    clock_t t0 = clock();
+    int     pred = int8_forward(&model, &state, (const int8_t *)image_bin, output);
+    clock_t t1 = clock();
+    printf("%d (%ld us)\n", pred, (long)(t1 - t0));
 
     Arena_Reset(arena);
     return 0;

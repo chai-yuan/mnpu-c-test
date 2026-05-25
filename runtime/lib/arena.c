@@ -41,7 +41,7 @@ void Arena_Reset(Arena handle) {
 memory_if Arena_GetMemoryIf(Arena self) {
     return (memory_if){
         .self            = self,
-        .mem_alloc       = (void * (*)(void *, size_t))Arena_Alloc,
+        .mem_alloc       = (void *(*)(void *, size_t))Arena_Alloc,
         .mem_free        = NULL,
         .mem_alloc_align = NULL,
     };

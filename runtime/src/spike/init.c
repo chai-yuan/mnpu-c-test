@@ -26,12 +26,19 @@ static int uart_getchar(void) { return -1; }
 
 /* ------------------------------------------------------------------ */
 
+static uint64_t read_mcycle(void) {
+    uint32_t val;
+    __asm__ __volatile__("csrr %0, mcycle" : "=r"(val));
+    return (uint64_t)val;
+}
+
 int main(void);
 
 void _init(void) {
     struct port_functions port = {
         .putchar = uart_putchar,
         .getchar = uart_getchar,
+        .get_time = read_mcycle,
     };
     port_init(port);
     main();
