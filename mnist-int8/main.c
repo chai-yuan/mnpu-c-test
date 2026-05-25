@@ -1,9 +1,11 @@
 /*
- * INT8 MNIST inference — command-line interface.
+ * INT8 MNIST inference — command-line interface (pure integer).
  * Usage: mnist-int8 model.bin image.bin
- *        mnist-int8 -r model.bin image.raw   (raw uint8, auto-quantize)
+ *
+ * Both files must be pre-quantized int8 binary — no float operations.
  */
 #include "model.h"
+#include "lib/arena.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,20 +27,13 @@ static unsigned char *read_file(const char *filename, size_t *out_sz) {
     return p;
 }
 
-static void usage(const char *p) {
-    fprintf(stderr, "Usage: %s [-r] model.bin image_file\n", p);
-}
-
 int main(int argc, char *argv[]) {
-    int raw = 0;
-    const char *mp, *ip;
-    if (argc == 4 && strcmp(argv[1], "-r") == 0) {
-        raw = 1; mp = argv[2]; ip = argv[3];
-    } else if (argc == 3) {
-        mp = argv[1]; ip = argv[2];
-    } else {
-        usage(argv[0]); return 1;
+    if (argc != 3) {
+        fprintf(stderr, "Usage: %s model.bin image.bin\n", argv[0]);
+        return 1;
     }
+    const char *mp = argv[1];
+    const char *ip = argv[2];
 
     /* Load model */
     size_t msz = 0;
@@ -53,34 +48,26 @@ int main(int argc, char *argv[]) {
     int8_setup_layers(&m, md);
 
     /* Run state */
-    unsigned char arena[8192];
+    unsigned char arena_buf[8192];
+    Arena         arena = Arena_Create(arena_buf, sizeof(arena_buf));
+    if (!arena) {
+        fprintf(stderr, "Error: arena create failed\n");
+        free(md); return 1;
+    }
     Int8RunState  s;
-    if (int8_runstate_init(&s, &m, arena, sizeof(arena)) != 0) {
+    if (int8_runstate_init(&s, &m, arena) != 0) {
         fprintf(stderr, "Error: arena too small\n");
         free(md); return 1;
     }
 
-    /* Load image */
+    /* Load image (pre-quantized int8, no float ops) */
     int8_t img[784];
-    if (raw) {
+    {
         size_t isz; unsigned char *id = read_file(ip, &isz);
         if (!id) { free(md); return 1; }
         if ((int)isz != m.config.input_dim) {
-            fprintf(stderr, "Error: wrong image size\n");
-            free(id); free(md); return 1;
-        }
-        for (int i = 0; i < m.config.input_dim; i++) {
-            float v = (float)id[i];
-            int8_quantize_input(&v, &img[i], 1,
-                                m.config.input_scale,
-                                m.config.input_zero_point);
-        }
-        free(id);
-    } else {
-        size_t isz; unsigned char *id = read_file(ip, &isz);
-        if (!id) { free(md); return 1; }
-        if ((int)isz != m.config.input_dim) {
-            fprintf(stderr, "Error: wrong image size\n");
+            fprintf(stderr, "Error: wrong image size %zu, expected %d\n",
+                    isz, m.config.input_dim);
             free(id); free(md); return 1;
         }
         memcpy(img, id, (size_t)m.config.input_dim);

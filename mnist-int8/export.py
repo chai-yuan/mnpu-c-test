@@ -3,10 +3,9 @@ Export TFLite INT8 model to a custom binary format for C inference.
 
 Binary layout (512-byte header + per-layer data):
   Header: magic(4) | version(4) | input_dim(4) | num_layers(4) |
-          layer_out_features[16](64) | input_scale(4) | input_zp(4) |
-          output_scale(4) | output_zp(4) | reserved(416)
+          layer_out_features[16](64) | input_zp(4) |
+          output_zp(4) | reserved(424)
   Each layer:
-    weight_scale[out_c]: float32   (per-channel)
     requant_multiplier[out_c]: int32
     requant_shift[out_c]: int32
     out_zero_point: int32
@@ -100,8 +99,6 @@ def export_tflite_to_bin(tflite_path, bin_path):
             'out_features':  int(w.shape[0]),
             'weight':        w.astype(np.int8),
             'bias':          b.astype(np.int32),
-            'weight_scale':  w_scale.astype(np.float32),
-            'out_scale':     float(np.squeeze(out_scale)),
             'out_zp':        int(np.squeeze(out_zp)),
             'q_mults':       q_mults.astype(np.int32),
             'shifts':        shifts.astype(np.int32),
@@ -113,9 +110,7 @@ def export_tflite_to_bin(tflite_path, bin_path):
     inp_scale, inp_zp = _get_quant_params(details, first_in_idx)
     out_scale, out_zp = _get_quant_params(details, last_out_idx)
 
-    input_scale  = float(np.squeeze(inp_scale))
     input_zp     = int(np.squeeze(inp_zp))
-    output_scale = float(np.squeeze(out_scale))
     output_zp    = int(np.squeeze(out_zp))
 
     # --- Write binary ---
@@ -129,18 +124,15 @@ def export_tflite_to_bin(tflite_path, bin_path):
             f.write(struct.pack('<i', layer['out_features']))
         for _ in range(MAX_LAYERS - len(layers_raw)):
             f.write(struct.pack('<i', 0))
-        f.write(struct.pack('<f', input_scale))
         f.write(struct.pack('<i', input_zp))
-        f.write(struct.pack('<f', output_scale))
         f.write(struct.pack('<i', output_zp))
         # Padding
-        header_used = 4 + 4 + 4 + 4 + MAX_LAYERS * 4 + 4 + 4 + 4 + 4
+        header_used = 4 + 4 + 4 + 4 + MAX_LAYERS * 4 + 4 + 4
         f.write(b'\x00' * (HEADER_SIZE - header_used))
 
         # Layer data
         for layer in layers_raw:
             out_c, in_c = layer['out_features'], layer['in_features']
-            f.write(layer['weight_scale'].tobytes())                   # float32[out_c]
             f.write(layer['q_mults'].tobytes())                        # int32[out_c]
             f.write(layer['shifts'].tobytes())                         # int32[out_c]
             f.write(struct.pack('<i', layer['out_zp']))                # int32
@@ -150,10 +142,10 @@ def export_tflite_to_bin(tflite_path, bin_path):
     file_size = os.path.getsize(bin_path)
     print(f"✅ Model exported to: {bin_path} ({file_size:,} bytes)")
     print(f"   Architecture: {layers_raw[0]['in_features']} → {' → '.join(str(l['out_features']) for l in layers_raw)}")
-    print(f"   Input:  scale={input_scale:.6f}, zp={input_zp}")
+    print(f"   Input:  zp={input_zp}")
     for i, l in enumerate(layers_raw):
         print(f"   Layer {i}: out={l['out_features']}, out_zp={l['out_zp']}")
-    print(f"   Output: scale={output_scale:.6f}, zp={output_zp}")
+    print(f"   Output: zp={output_zp}")
 
 # -----------------------------------------------------------------------------
 # CLI entrypoint

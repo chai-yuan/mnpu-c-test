@@ -1,3 +1,3 @@
 NAME = mnist-int8
-SRCS = main.c model.c
+SRCS = main-test.c model.c
 include ../runtime/Makefile

@@ -2,6 +2,7 @@
 #define MODEL_INT8_H
 
 #include <stdint.h>
+#include "lib/arena.h"
 
 // Binary format constants
 #define INT8_MAX_LAYERS  16
@@ -15,9 +16,7 @@ typedef struct {
     int32_t input_dim;
     int32_t num_layers;
     int32_t layer_out_features[INT8_MAX_LAYERS];
-    float   input_scale;
     int32_t input_zero_point;
-    float   output_scale;
     int32_t output_zero_point;
     int32_t version;
 } Int8Config;
@@ -28,7 +27,6 @@ typedef struct {
 typedef struct {
     int32_t  in_features;
     int32_t  out_features;
-    float   *weight_scale;        /* [out_features] per-channel float scales     */
     int32_t *requant_multiplier;  /* [out_features] TFLite Q0.31 multipliers    */
     int32_t *requant_shift;       /* [out_features] right-shift amounts         */
     int32_t  out_zero_point;
@@ -74,12 +72,11 @@ int int8_parse_header(const unsigned char *header, Int8Config *cfg);
 int int8_setup_layers(Int8Model *model, unsigned char *data);
 
 /**
- * Allocate run-state scratch buffers inside a user-provided arena.
- * arena_size should be roughly 4096 bytes.
- * Returns 0 on success, -1 if arena is too small.
+ * Allocate run-state scratch buffers from an Arena.
+ * Returns 0 on success, -1 if arena is exhausted.
  */
 int int8_runstate_init(Int8RunState *state, const Int8Model *model,
-                       unsigned char *arena, int arena_size);
+                       Arena arena);
 
 /**
  * Run INT8 inference.
@@ -89,13 +86,6 @@ int int8_runstate_init(Int8RunState *state, const Int8Model *model,
  */
 int int8_forward(const Int8Model *model, Int8RunState *state,
                  const int8_t *input, int8_t *output);
-
-/**
- * Helper: quantize float image to int8.
- *   img_float  [n] → img_int8 [n]
- */
-void int8_quantize_input(const float *img_float, int8_t *img_int8, int n,
-                         float scale, int32_t zero_point);
 
 /**
  * Helper: find argmax in int8 output (skips softmax).

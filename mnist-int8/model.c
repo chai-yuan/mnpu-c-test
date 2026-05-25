@@ -27,9 +27,7 @@ int int8_parse_header(const unsigned char *header, Int8Config *cfg) {
         offset += sizeof(int32_t);
     }
 
-    cfg->input_scale      = *(float *)(header + offset);   offset += sizeof(float);
     cfg->input_zero_point = *(int32_t *)(header + offset); offset += sizeof(int32_t);
-    cfg->output_scale     = *(float *)(header + offset);   offset += sizeof(float);
     cfg->output_zero_point= *(int32_t *)(header + offset);
 
     return 0;
@@ -53,7 +51,6 @@ int int8_setup_layers(Int8Model *model, unsigned char *data) {
         l->in_features  = in_c;
         l->out_features = out_c;
 
-        l->weight_scale       = (float *)ptr;         ptr += out_c * sizeof(float);
         l->requant_multiplier = (int32_t *)ptr;       ptr += out_c * sizeof(int32_t);
         l->requant_shift      = (int32_t *)ptr;       ptr += out_c * sizeof(int32_t);
         l->out_zero_point     = *(int32_t *)ptr;      ptr += sizeof(int32_t);
@@ -64,13 +61,11 @@ int int8_setup_layers(Int8Model *model, unsigned char *data) {
 }
 
 /* ==========================================================================
- * Run-state allocation (simple bump allocator, aligns to 16 bytes)
+ * Run-state allocation (via runtime Arena)
  * ========================================================================== */
 
-#define ALIGN_UP(x, a) ((((size_t)(x)) + ((a) - 1)) & ~((size_t)((a) - 1)))
-
 int int8_runstate_init(Int8RunState *state, const Int8Model *model,
-                       unsigned char *arena, int arena_size) {
+                       Arena arena) {
     /* Compute max dimension width */
     int max_dim = model->config.input_dim;
     for (int i = 0; i < model->num_layers; i++) {
@@ -79,26 +74,19 @@ int int8_runstate_init(Int8RunState *state, const Int8Model *model,
     }
     state->max_dim = max_dim;
 
-    /* Determine required space */
-    int need_acc  = max_dim * sizeof(int32_t);  /* int32 accum buffer    */
-    int need_buf1 = max_dim * sizeof(int8_t);   /* activation buffer A   */
-    int need_buf2 = max_dim * sizeof(int8_t);   /* activation buffer B   */
-    int total     = ALIGN_UP(need_acc, 16) +
-                    ALIGN_UP(need_buf1, 16) +
-                    ALIGN_UP(need_buf2, 16);
+    /* Allocate from arena (automatically 16‑byte aligned) */
+    state->acc = Arena_Alloc(arena, (size_t)max_dim * sizeof(int32_t));
+    if (!state->acc) return -1;
 
-    if (total > arena_size) return -1;
+    /* Two activation buffers back-to-back for ping-pong */
+    state->buf = Arena_Alloc(arena, (size_t)max_dim * sizeof(int8_t) * 2);
+    if (!state->buf) return -1;
 
-    unsigned char *p = arena;
-    state->acc = (int32_t *)p;   p += ALIGN_UP(need_acc, 16);
-    /* buf[0] and buf[1] are adjacent for easy ping-pong */
-    state->buf = (int8_t *)p;    p += ALIGN_UP(need_buf1 + need_buf2, 16);
     return 0;
 }
 
 /* ==========================================================================
  * TFLite 纯整型 requantize 原语
- * 与 tensorflow/lite/kernels/internal/reference/integer_ops 保持一致
  * ========================================================================== */
 
 /** Saturating rounding doubling high-mul:  (a*b + 2^30) >> 31,饱和处理 */
@@ -221,16 +209,6 @@ int int8_forward(const Int8Model *model, Int8RunState *state,
 /* ==========================================================================
  * Helpers
  * ========================================================================== */
-
-void int8_quantize_input(const float *img_float, int8_t *img_int8, int n,
-                         float scale, int32_t zero_point) {
-    for (int i = 0; i < n; i++) {
-        float q = img_float[i] / scale + (float)zero_point;
-        if (q > 127.0f)       q = 127.0f;
-        else if (q < -128.0f) q = -128.0f;
-        img_int8[i] = (int8_t)(q + (q >= 0.0f ? 0.5f : -0.5f));  /* round */
-    }
-}
 
 int int8_argmax(const int8_t *x, int n) {
     int   max_i   = 0;
