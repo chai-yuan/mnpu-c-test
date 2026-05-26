@@ -17,4 +17,10 @@ gen: $(IMAGE).bin
 	@echo "  FPGA $(IMAGE).coe generated"
 	@python $(FPGA_DIR)/gen-coe.py $(IMAGE).bin --output $(IMAGE).coe
 
+FPGA_SIM = /home/charain/project/mnpu-sim/build/Vsim_top
+
+run: $(IMAGE).bin
+	@echo "  FPGA_SIM $(notdir $(IMAGE))"
+	$(FPGA_SIM) --max-time 50000000 --sram-init $(IMAGE).bin
+
 .PHONY: gen

@@ -23,12 +23,21 @@ static int uart_getchar(void) {
     return (int)(data & 0xFF);
 }
 
+#define TIMER_BASE 0x20000000UL
+#define TIMER_READ (*(volatile unsigned int *)(TIMER_BASE + 0x0))
+
+static uint64_t read_time(void) {
+    uint32_t val = TIMER_READ;
+    return (uint64_t)val;
+}
+
 int main(void);
 
 void _init(void) {
     struct port_functions port = {
-        .putchar = uart_putchar,
-        .getchar = uart_getchar,
+        .putchar  = uart_putchar,
+        .getchar  = uart_getchar,
+        .get_time = read_time,
     };
     port_init(port);
     main();
@@ -69,7 +78,4 @@ void c_trap_handler(uint32_t mcause, uint32_t mepc, uint32_t mtval) {
         break;
     }
     printf("=============================================================\n\n");
-
-    while (1) {
-    }
 }
