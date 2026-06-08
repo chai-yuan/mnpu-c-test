@@ -27,8 +27,9 @@ static int uart_getchar(void) {
 #define TIMER_READ (*(volatile unsigned int *)(TIMER_BASE + 0x0))
 
 static uint64_t read_time(void) {
-    uint32_t val = TIMER_READ;
-    return (uint64_t)val;
+    // uint32_t val = TIMER_READ;
+    // return (uint64_t)val;
+    return 0;
 }
 
 int main(void);

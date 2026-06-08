@@ -29,3 +29,16 @@ int strcmp(const char *s1, const char *s2) {
     }
     return (unsigned char)*s1 - (unsigned char)*s2;
 }
+
+char *strncpy(char *dst, const char *src, size_t n) {
+    char *d = dst;
+    while (n && *src) {
+        *d++ = *src++;
+        n--;
+    }
+    while (n) {
+        *d++ = '\0';
+        n--;
+    }
+    return dst;
+}

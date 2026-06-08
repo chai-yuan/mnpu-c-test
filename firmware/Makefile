@@ -1,3 +1,3 @@
 NAME = firmware
-SRCS = main.c shell.c
+SRCS = main.c
 include ../runtime/Makefile

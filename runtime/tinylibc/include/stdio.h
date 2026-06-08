@@ -1,6 +1,8 @@
 #ifndef _STDIO_H
 #define _STDIO_H
 
+#include <stddef.h>
+
 typedef void FILE;
 
 #define stdin ((FILE *)0)
@@ -8,6 +10,7 @@ typedef void FILE;
 #define stderr ((FILE *)2)
 
 int   printf(const char *fmt, ...);
+int   snprintf(char *buf, size_t len, const char *fmt, ...);
 int   fprintf(void *stream, const char *fmt, ...);
 int   getchar(void);
 char *fgets(char *s, int size, void *stream);
