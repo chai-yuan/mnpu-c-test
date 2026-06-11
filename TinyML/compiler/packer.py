@@ -4,7 +4,9 @@ TinyMaix model format.
 All binary layout details are encapsulated here so that the CLI layer
 only deals with argument parsing.
 
-Only INT8 quantised models are supported (``mdl_type == TM_MDL_INT8``).
+Only INT8 quantised models are supported.  All quantisation parameters
+(weight scales) are pre‑computed as integer ``(mult, shift)`` pairs so
+that the runtime never touches float32 bytes.
 """
 
 import struct
@@ -21,6 +23,25 @@ from .config import (
     TM_PAD_VALID,
 )
 from .utils import align8, shape_to_dims, cal_buf_size
+
+
+# ---------------------------------------------------------------------------
+# Float → Q31 (mult, shift) – compiler‑side only, uses numpy/float
+# ---------------------------------------------------------------------------
+
+def _float_to_qp(scale):
+    """Convert a positive float scale to int32 (mult, shift).
+
+    ``scale ≈ mult / 2^shift``, with *mult* in [2^30, 2^31).
+    """
+    if scale <= 0:
+        return (0, 0)
+    mantissa, exponent = np.frexp(float(scale))
+    m = int(mantissa * 2147483648.0 + 0.5)  # * 2^31
+    if m >= 0x80000000:
+        m >>= 1
+        exponent += 1
+    return m, 31 - exponent
 
 
 # ---------------------------------------------------------------------------
@@ -203,8 +224,13 @@ def _pack_model_header(endian, out_deq, layer_cnt, total_buf,
 # ---------------------------------------------------------------------------
 
 def _pack_layer_header(endian, layer, layer_type, in_oft, out_oft,
-                       in_dims_vec, out_dims_vec) -> bytearray:
-    """Build the 48‑byte per‑layer header (layer_size is zero initially)."""
+                       in_dims_vec, out_dims_vec,
+                       qp_mult=0, qp_shift=0) -> bytearray:
+    """Build the 48‑byte per‑layer header (layer_size is zero initially).
+
+    *qp_mult* / *qp_shift* are the pre‑computed integer requantisation
+    parameters that replaced the old ``float in_s`` / ``float out_s``.
+    """
     lh = bytearray()
     lh += struct.pack(endian + "H",  layer_type)
     lh += struct.pack(endian + "H",  layer["is_output"])
@@ -213,9 +239,9 @@ def _pack_layer_header(endian, layer, layer_type, in_oft, out_oft,
     lh += struct.pack(endian + "I",  out_oft)
     lh += struct.pack(endian + "4H", *in_dims_vec)
     lh += struct.pack(endian + "4H", *out_dims_vec)
-    lh += struct.pack(endian + "f",  layer["i_scale"])
+    lh += struct.pack(endian + "i",  int(qp_mult))
     lh += struct.pack(endian + "i",  int(layer["i_zeropoint"]))
-    lh += struct.pack(endian + "f",  layer["o_scale"])
+    lh += struct.pack(endian + "i",  int(qp_shift))
     lh += struct.pack(endian + "i",  int(layer["o_zeropoint"]))
 
     assert len(lh) == LAYERHEAD_SIZE, \
@@ -241,12 +267,28 @@ def _pack_one_layer(layer, idx, ctx, endian, buf_size, out_deq, log):
     in_oft, out_oft = ctx.compute_offsets(layer, out_deq)
     log(f"       offsets : in={in_oft}  out={out_oft}")
 
+    # ── compute header QP (fc/gap/add pre‑compute here) ──────────────
+    iscale = layer["i_scale"]
+    oscale = layer["o_scale"]
+    qp_mult = 0
+    qp_shift = 0
+
+    if name == "FULLY_CONNECTED":
+        ws0 = float(layer["w_scale"][0])
+        qp_mult, qp_shift = _float_to_qp(ws0 * iscale / oscale)
+    elif name == "MEAN":
+        area = layer["in_shape"][1] * layer["in_shape"][2]
+        qp_mult, qp_shift = _float_to_qp(iscale / (area * oscale))
+    elif name == "ADD":
+        qp_mult, qp_shift = _float_to_qp(iscale / oscale)
+
     # ── layer header ─────────────────────────────────────────────────
     lh = _pack_layer_header(endian, layer, layer_type,
-                            in_oft, out_oft, in_dims_vec, out_dims_vec)
+                            in_oft, out_oft, in_dims_vec, out_dims_vec,
+                            qp_mult, qp_shift)
 
     # ── layer body ───────────────────────────────────────────────────
-    lbody = _pack_layer_body(layer, name, endian, buf_size, log)
+    lbody = _pack_layer_body(layer, name, endian, buf_size, log, iscale, oscale)
 
     # ── fill actual layer size ───────────────────────────────────────
     layer_size = len(lh) + len(lbody)
@@ -260,9 +302,10 @@ def _pack_one_layer(layer, idx, ctx, endian, buf_size, out_deq, log):
 # Layer body packers (dispatched by layer name)
 # ---------------------------------------------------------------------------
 
-def _pack_layer_body(layer, name, endian, buf_size, log) -> bytes:
+def _pack_layer_body(layer, name, endian, buf_size, log,
+                      iscale=1.0, oscale=1.0) -> bytes:
     if name in ("CONV_2D", "DEPTHWISE_CONV_2D"):
-        return _pack_conv_body(layer, endian, log)
+        return _pack_conv_body(layer, endian, log, iscale, oscale)
     elif name == "MEAN":
         return _pack_gap_body(layer, log)
     elif name == "FULLY_CONNECTED":
@@ -272,14 +315,14 @@ def _pack_layer_body(layer, name, endian, buf_size, log) -> bytes:
     elif name == "RESHAPE":
         return _pack_reshape_body()
     elif name == "ADD":
-        return _pack_add_body(layer, endian, buf_size, log)
+        return _pack_add_body(layer, endian, buf_size, log, iscale, oscale)
     else:
         raise RuntimeError(f"Unknown layer type for packing: {name}")
 
 
 # ──────────────────────────────── CONV ────────────────────────────────
 
-def _pack_conv_body(layer, endian, log) -> bytes:
+def _pack_conv_body(layer, endian, log, iscale=1.0, oscale=1.0) -> bytes:
     """Pack body for CONV_2D and DEPTHWISE_CONV_2D."""
     is_dwconv = (layer["name"] == "DEPTHWISE_CONV_2D")
 
@@ -347,7 +390,7 @@ def _pack_conv_body(layer, endian, log) -> bytes:
 
     # ── offsets and data ─────────────────────────────────────────────
     ws_oft = LAYERHEAD_SIZE + len(body) + 12  # 3× uint32 offsets
-    ws_size = align8(mo_c * 4)
+    ws_size = align8(mo_c * 8)  # per‑channel QP: 2× int32 = 8 bytes
     w_oft = ws_oft + ws_size
     w_size = align8(w.size * UNIT_SIZE)
     b_oft = w_oft + w_size
@@ -358,12 +401,15 @@ def _pack_conv_body(layer, endian, log) -> bytes:
     body += struct.pack(endian + "I", b_oft)
     assert len(body) % 8 == 0, f"Body length {len(body)} not 8‑aligned"
 
-    # ── weight scales (per output channel, float32) ──────────────────
+    # ── pre‑computed QP (per output channel, int32 pairs) ─────────────
     ws = layer["w_scale"]
-    body += struct.pack(endian + f"{ws.size}f", *ws)
-    if ws_size != ws.size * 4:
-        body += bytes(ws_size - ws.size * 4)
-    assert len(body) % 8 == 0, f"After ws: {len(body)}"
+    for c in range(mo_c):
+        eff = float(ws[c]) * iscale / oscale
+        m, s = _float_to_qp(eff)
+        body += struct.pack(endian + "ii", m, s)
+    if ws_size != mo_c * 8:
+        body += bytes(ws_size - mo_c * 8)
+    assert len(body) % 8 == 0, f"After qp: {len(body)}"
 
     # ── weights (int8) ──────────────────────────────────────────────
     body += w.astype(np.int8).tobytes()
@@ -377,7 +423,7 @@ def _pack_conv_body(layer, endian, log) -> bytes:
         body += bytes(b_size - b.size * BUNIT_SIZE)
     assert len(body) % 8 == 0, f"After b: {len(body)}"
 
-    log(f"       w/scale : {ws.size} ch, weight={list(w.shape[-2:])}→{w.size}")
+    log(f"       QP   : {mo_c} ch, weight={list(w.shape[-2:])}→{w.size}")
     return body
 
 
@@ -397,13 +443,16 @@ def _pack_gap_body(layer, log) -> bytes:
 # ──────────────────────────────── FC ──────────────────────────────────
 
 def _pack_fc_body(layer, endian, log) -> bytes:
-    """Pack body for FULLY_CONNECTED."""
+    """Pack body for FULLY_CONNECTED.
+
+    QP is stored in the layer header (computed in _pack_one_layer).
+    Here we just set offsets, skipping the old float32 ws area.
+    """
     mi_c = layer["in_shape"][-1]
     mo_c = layer["out_shape"][-1]
 
     w = layer["weight"].flatten()
     b = layer.get("bias", np.zeros((mo_c,))).copy().astype(np.int64)
-    # Fuse input zero‑point into bias
     mzp = int(layer["i_zeropoint"])
     tmp = np.array([np.sum(w[c * mi_c:(c + 1) * mi_c])
                     for c in range(mo_c)], dtype=np.int64)
@@ -411,11 +460,13 @@ def _pack_fc_body(layer, endian, log) -> bytes:
     b = b.astype(np.int32)
 
     body = b""
+    # FC no longer has per‑channel QP in body; header holds it.
+    # Keep ws_oft / w_oft / b_oft trio for binary layout compatibility.
     ws_oft = LAYERHEAD_SIZE + len(body) + 16  # 4× uint32
-    ws_size = align8(mo_c * 4)
-    w_oft = ws_oft + ws_size
+    ws_size = 8   # single QP pair (2× int32), 8‑aligned
+    w_oft  = ws_oft + ws_size
     w_size = align8(w.size * UNIT_SIZE)
-    b_oft = w_oft + w_size
+    b_oft  = w_oft + w_size
     b_size = align8(b.size * BUNIT_SIZE)
 
     body += struct.pack(endian + "I", ws_oft)
@@ -424,11 +475,8 @@ def _pack_fc_body(layer, endian, log) -> bytes:
     body += struct.pack(endian + "I", 0)  # reserve (align)
     assert len(body) % 8 == 0
 
-    # ws (float32 per output channel)
-    ws = layer["w_scale"]
-    body += struct.pack(endian + f"{ws.size}f", *ws)
-    if ws_size != ws.size * 4:
-        body += bytes(ws_size - ws.size * 4)
+    # qp (dummy – the real QP is in the layer header)
+    body += struct.pack(endian + "ii", 0, 0)
     assert len(body) % 8 == 0
 
     # w (int8)
@@ -443,7 +491,7 @@ def _pack_fc_body(layer, endian, log) -> bytes:
         body += bytes(b_size - b.size * BUNIT_SIZE)
     assert len(body) % 8 == 0
 
-    log(f"       w/scale : {ws.size} ch, weight={mi_c}×{mo_c} → {w.size}")
+    log(f"       QP in hdr, weight={mi_c}×{mo_c} → {w.size}")
     return body
 
 
@@ -459,16 +507,27 @@ def _pack_reshape_body() -> bytes:
 
 # ──────────────────────────────── ADD ─────────────────────────────────
 
-def _pack_add_body(layer, endian, buf_size, log) -> bytes:
-    """Pack body for ADD (element‑wise)."""
+def _pack_add_body(layer, endian, buf_size, log, iscale=1.0, oscale=1.0) -> bytes:
+    """Pack body for ADD (element‑wise).
+
+    Header holds QP0 = in_s / out_s.  Body stores QP1 = in_s1 / out_s
+    and QP2 = 1.0 (identity scale for re‑combining addends).
+    """
     if layer.get("fused_activation_function"):
         raise RuntimeError("ADD with fused activation is not supported")
 
+    # QP1: in_s1 / out_s
+    qp1_m, qp1_s = _float_to_qp(float(layer["i_scale1"]) / oscale)
+    # QP2: identity (1.0 in Q31)
+    qp2_m, qp2_s = 0x40000000, 30
+
     body = b""
-    body += struct.pack(endian + "i", buf_size)         # input1 buf offset
-    body += struct.pack(endian + "f", layer["i_scale1"])
+    body += struct.pack(endian + "i", buf_size)              # input1 buf offset
     body += struct.pack(endian + "i", int(layer["i_zeropoint1"]))
-    body += struct.pack(endian + "i", 0)                # pad
+    body += struct.pack(endian + "i", 0)                     # reserve
+    body += struct.pack(endian + "i", 0)                     # reserve
+    body += struct.pack(endian + "ii", qp1_m, qp1_s)         # QP1
+    body += struct.pack(endian + "ii", qp2_m, qp2_s)         # QP2
     assert len(body) % 8 == 0
     return body
 

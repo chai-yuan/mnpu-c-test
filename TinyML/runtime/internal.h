@@ -64,9 +64,9 @@ typedef struct {
     uint32_t out_oft;
     uint16_t in_dims[4];
     uint16_t out_dims[4];
-    float    in_s;
+    int32_t  qp_mult;        /* pre‑computed requant multiplier  */
     int32_t  in_zp;
-    float    out_s;
+    int32_t  qp_shift;       /* pre‑computed requant shift       */
     int32_t  out_zp;
 } tml_head_t;
 
@@ -80,7 +80,7 @@ typedef struct {
     uint8_t  pad[4];         /* top, bottom, left, right */
     uint32_t depth_mul;      /* 0 → conv, >=1 → dwconv */
     uint32_t _resv;
-    uint32_t ws_oft;
+    uint32_t ws_oft;         /* → per‑channel qp (int32[cho*2]) */
     uint32_t w_oft;
     uint32_t b_oft;
 } tml_conv_t;
@@ -88,7 +88,7 @@ typedef struct {
 /* ---- fc body ---- */
 typedef struct {
     tml_head_t h;
-    uint32_t ws_oft;
+    uint32_t ws_oft;         /* dummy (qp in header) */
     uint32_t w_oft;
     uint32_t b_oft;
     uint32_t _resv;
@@ -98,9 +98,13 @@ typedef struct {
 typedef struct {
     tml_head_t h;
     int32_t  in_oft1;
-    float    in_s1;
     int32_t  in_zp1;
-    int32_t  _resv;
+    int32_t  _resv1;
+    int32_t  _resv2;
+    int32_t  qp1_mult;       /* in_s1 / out_s */
+    int32_t  qp1_shift;
+    int32_t  qp2_mult;       /* identity 1.0   */
+    int32_t  qp2_shift;
 } tml_add_t;
 
 /* gap / softmax / reshape have no extra body */
@@ -141,12 +145,7 @@ struct TinyML_ {
     int8_t          *buf;       /* ping‑pong buffer */
     int              own_buf;   /* 1 if alloc'd via mem_if */
     const struct memory_if *mem;
-
-    /* Pre‑computed integer requantisation scales, flat array.
-     * layer_qp_off[li] → index of first qp entry for layer li.
-     * layer_qp_off[layer_cnt] → total entries.                     */
-    tml_qp_t        *layer_qp;  /* flat array of (mult, shift)     */
-    int32_t         *layer_qp_off; /* per‑layer offset, size=nlyr+1 */
+    /* QP values are stored INLINE in the TMDL binary — no runtime cache. */
 };
 
 #endif /* TINYML_INTERNAL_H */
