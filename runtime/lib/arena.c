@@ -10,7 +10,7 @@ struct Arena {
 
 static size_t align_up(size_t size) { return (size + ARENA_ALIGN - 1) & ~((size_t)ARENA_ALIGN - 1); }
 
-Arena Arena_Create(void *buffer, size_t size) {
+ArenaHandle Arena_Create(void *buffer, size_t size) {
     size_t header_size = align_up(sizeof(struct Arena));
     if (size < header_size)
         return NULL;
@@ -22,7 +22,7 @@ Arena Arena_Create(void *buffer, size_t size) {
     return arena;
 }
 
-void *Arena_Alloc(Arena handle, size_t size) {
+void *Arena_Alloc(ArenaHandle handle, size_t size) {
     struct Arena *arena   = (struct Arena *)handle;
     size_t        aligned = align_up(size);
     size_t        used    = (size_t)(arena->current - arena->start);
@@ -33,16 +33,21 @@ void *Arena_Alloc(Arena handle, size_t size) {
     return ptr;
 }
 
-void Arena_Reset(Arena handle) {
+void Arena_Reset(ArenaHandle handle) {
     struct Arena *arena = (struct Arena *)handle;
     arena->current      = arena->start;
 }
 
-memory_if Arena_GetMemoryIf(Arena self) {
+static void arena_free_nop(void *self, void *addr) {
+    (void)self;
+    (void)addr;
+}
+
+memory_if Arena_GetMemoryIf(ArenaHandle self) {
     return (memory_if){
         .self            = self,
         .mem_alloc       = (void *(*)(void *, size_t))Arena_Alloc,
-        .mem_free        = NULL,
+        .mem_free        = arena_free_nop,
         .mem_alloc_align = NULL,
     };
 }

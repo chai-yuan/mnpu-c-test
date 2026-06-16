@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "../../tinyml/TinyML.h"
+#include "tinyml.h"
 #include "out/mnist_mlp_int8.h"
 #include "out/test_images.h"
 
@@ -31,37 +31,22 @@ static int argmax_int8(const int8_t *data, int len) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Load model from baked-in memory                                    */
-/* ------------------------------------------------------------------ */
-static void arena_free_nop(void *self, void *addr) {
-    (void)self;
-    (void)addr;
-    /* Bump allocator: free is a no-op. */
-}
-
-static TinyML *load_model_from_memory(const uint8_t *data, Arena arena) {
-    memory_if mem = Arena_GetMemoryIf(arena);
-    mem.mem_free  = arena_free_nop;
-    TinyML   *ml  = TinyML_Create(&mem, data);
-    if (!ml) {
-        fprintf(stderr, "Error: failed to create TinyML runtime (bad model?)\n");
-        return NULL;
-    }
-    return ml;
-}
-
-/* ------------------------------------------------------------------ */
 /*  Main                                                               */
 /* ------------------------------------------------------------------ */
 int main(void) {
-    Arena arena = Arena_Create(s_arena_buf, sizeof(s_arena_buf));
+    ArenaHandle arena = Arena_Create(s_arena_buf, sizeof(s_arena_buf));
     if (!arena) {
         fprintf(stderr, "Error: arena create failed\n");
         return 1;
     }
 
-    TinyML *ml = load_model_from_memory(mdl_data, arena);
+    /* memory_if lives in main's frame — same lifetime as TinyML handle.
+     * TinyML_Create stores the pointer (tinyml.c:77), so it must not be
+     * a stack variable in a shorter-lived scope. */
+    memory_if mem = Arena_GetMemoryIf(arena);
+    TinyML   *ml  = TinyML_Create(&mem, mdl_data);
     if (!ml) {
+        fprintf(stderr, "Error: failed to create TinyML runtime (bad model?)\n");
         return 1;
     }
 
@@ -97,7 +82,8 @@ int main(void) {
     }
 
     if (total > 0) {
-        printf("\nSummary: %d/%d correct (%.1f%%)\n", correct, total, 100.0 * correct / total);
+        printf("\nSummary: %d/%d correct (%d%%)\n", correct, total,
+               (correct * 100) / total);
     }
 
     TinyML_Destroy(ml);

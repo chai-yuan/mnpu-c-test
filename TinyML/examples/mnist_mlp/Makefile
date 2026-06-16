@@ -1,4 +1,5 @@
 NAME = tinyml-mnist-mlp
-SRCS = main.c ../../tinyml/TinyML.c ../../tinyml/arch/soft.c
-CFLAGS += -I../../tinyml
+TOP_DIR = $(realpath $(dir ../../))
+SRCS = main.c $(TOP_DIR)/tinyml/tinyml.c $(TOP_DIR)/tinyml/arch/soft.c
+CFLAGS += -I$(TOP_DIR)/tinyml
 include ../../../runtime/Makefile

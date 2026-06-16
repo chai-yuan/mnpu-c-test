@@ -17,6 +17,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include "lib/interface/memory_if.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,27 +43,13 @@ extern "C" {
 typedef struct TinyML_ TinyML;
 
 /* ------------------------------------------------------------------ */
-/*  Memory interface                                                   */
-/* ------------------------------------------------------------------ */
-
-#ifndef _MEMORY_IF_H
-typedef void *(*tml_mem_alloc_t)(void *self, size_t size);
-typedef void  (*tml_mem_free_t) (void *self, void *addr);
-
-typedef struct memory_if {
-    void            *self;
-    tml_mem_alloc_t  mem_alloc;
-    tml_mem_free_t   mem_free;
-} memory_if;
-#endif
-
-/* ------------------------------------------------------------------ */
 /*  API                                                                */
 /* ------------------------------------------------------------------ */
 
 /**
- * Create a TinyML runtime instance.
- * @param mem   Memory interface (NULL → malloc/free).
+ * Create a TinyML runtime instance — copies @p mem by value.
+ *
+ * @param mem   Memory interface (must provide at least mem_alloc).
  * @param model Pointer to compiled TMDL model binary.
  * @return      Opaque handle, or NULL on error.
  */

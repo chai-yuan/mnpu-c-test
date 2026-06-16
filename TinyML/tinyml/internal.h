@@ -8,6 +8,7 @@
 #define TINYML_INTERNAL_H
 
 #include <stdint.h>
+#include "lib/interface/memory_if.h"
 
 /* ------------------------------------------------------------------ */
 /*  TMDL binary format (matches compiler's packer.py)                  */
@@ -144,7 +145,7 @@ struct TinyML_ {
     const tml_bin_t *bin;        /* model in flash */
     int8_t          *buf;       /* ping‑pong buffer */
     int              own_buf;   /* 1 if alloc'd via mem_if */
-    const struct memory_if *mem;
+    memory_if        mem;        /* copied from create() — not a pointer */
     /* QP values are stored INLINE in the TMDL binary — no runtime cache. */
 };
 

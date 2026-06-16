@@ -4,25 +4,11 @@
  * stored inlined in the TMDL binary as (int32 mult, int32 shift) pairs.
  * No float parsing or scale arithmetic is needed at runtime.
  */
-#include <stdlib.h>
 #include <string.h>
 
-#include "TinyML.h"
+#include "tinyml.h"
 #include "internal.h"
 #include "arch/soft.h"
-
-/* ================================================================== */
-/*  internal helpers                                                   */
-/* ================================================================== */
-
-static void *_tml_alloc(const memory_if *mem, size_t sz) {
-    if (mem && mem->mem_alloc) return mem->mem_alloc(mem->self, sz);
-    return malloc(sz);
-}
-static void _tml_free(const memory_if *mem, void *p) {
-    if (mem && mem->mem_free) mem->mem_free(mem->self, p);
-    else free(p);
-}
 #ifdef __GNUC__
 #define TML_UNUSED __attribute__((unused))
 #else
@@ -65,12 +51,14 @@ TinyML *TinyML_Create(const memory_if *mem, const uint8_t *model)
         model[2] != TML_MAGIC_2 || model[3] != TML_MAGIC_3)  return NULL;
     if (bin->mdl_type != 0)       return NULL; /* INT8 only */
 
-    TinyML *self = (TinyML *)_tml_alloc(mem, sizeof(TinyML));
+    TinyML *self = MemoryIf_Alloc((memory_if *)mem, sizeof(TinyML));
     if (!self) return NULL;
-    self->bin = bin;  self->own_buf = 0;  self->mem = mem;
+    self->bin    = bin;
+    self->own_buf = 0;
+    self->mem    = *mem;          /* copy by value — safe to pass &local */
 
-    self->buf = (int8_t *)_tml_alloc(mem, (size_t)bin->buf_size);
-    if (!self->buf) { _tml_free(mem, self); return NULL; }
+    self->buf = MemoryIf_Alloc(&self->mem, (size_t)bin->buf_size);
+    if (!self->buf) { MemoryIf_Free(&self->mem, self); return NULL; }
     self->own_buf = 1;
     return self;
 }
@@ -78,8 +66,8 @@ TinyML *TinyML_Create(const memory_if *mem, const uint8_t *model)
 void TinyML_Destroy(TinyML *self)
 {
     if (!self) return;
-    if (self->own_buf) _tml_free(self->mem, self->buf);
-    _tml_free(self->mem, self);
+    if (self->own_buf) MemoryIf_Free(&self->mem, self->buf);
+    MemoryIf_Free(&self->mem, self);
 }
 
 int TinyML_GetInputSize (TinyML *self) { const uint16_t *d=self->bin->in_dims;  return (int)d[1]*(int)d[2]*(int)d[3]; }
