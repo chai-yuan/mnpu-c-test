@@ -7,105 +7,105 @@
 #ifndef TINYML_INTERNAL_H
 #define TINYML_INTERNAL_H
 
+#include "arena/arena.h"
 #include <stdint.h>
-#include "lib/interface/memory_if.h"
 
 /* ------------------------------------------------------------------ */
 /*  TMDL binary format (matches compiler's packer.py)                  */
 /* ------------------------------------------------------------------ */
 
 /* "MAIX" stored in file */
-#define TML_MAGIC_0  0x4D  /* 'M' */
-#define TML_MAGIC_1  0x41  /* 'A' */
-#define TML_MAGIC_2  0x49  /* 'I' */
-#define TML_MAGIC_3  0x58  /* 'X' */
+#define TML_MAGIC_0 0x4D /* 'M' */
+#define TML_MAGIC_1 0x41 /* 'A' */
+#define TML_MAGIC_2 0x49 /* 'I' */
+#define TML_MAGIC_3 0x58 /* 'X' */
 #define TML_HEADER_SIZE 64
-#define TML_LAYER_HEAD  48
-#define TML_ALIGN       8
+#define TML_LAYER_HEAD 48
+#define TML_ALIGN 8
 
 #define TML_ALIGN_UP(x) ((((size_t)(x)) + (TML_ALIGN - 1)) / TML_ALIGN * TML_ALIGN)
 
 /* ---- layer type IDs ---- */
-#define TML_CONV2D      0
-#define TML_GAP          1
-#define TML_FC          2
-#define TML_SOFTMAX     3
-#define TML_RESHAPE     4
-#define TML_DWCONV2D    5
-#define TML_ADD         6
+#define TML_CONV2D 0
+#define TML_GAP 1
+#define TML_FC 2
+#define TML_SOFTMAX 3
+#define TML_RESHAPE 4
+#define TML_DWCONV2D 5
+#define TML_ADD 6
 
 /* ---- activation ---- */
-#define TML_ACT_NONE    0
-#define TML_ACT_RELU    1
+#define TML_ACT_NONE 0
+#define TML_ACT_RELU 1
 
 /* ---- max dimensions for static workspace ---- */
-#define TML_MAX_CH      1024
+#define TML_MAX_CH 1024
 
 /* ---- model header (64 bytes, on flash) ---- */
 typedef struct {
-    uint32_t magic;          /* 0 */
-    uint8_t  mdl_type;       /* 4 */
-    uint8_t  out_deq;        /* 5 */
-    uint16_t input_cnt;      /* 6 */
-    uint16_t output_cnt;     /* 8 */
-    uint16_t layer_cnt;      /* 10 */
-    uint32_t buf_size;       /* 12 – pingpong + keep */
-    uint32_t sub_size;       /* 16 */
-    uint16_t in_dims[4];     /* 20 – [ndim, h, w, c] */
-    uint16_t out_dims[4];    /* 28 */
-    uint8_t  _pad[28];       /* 36 – padding, total header = 64 */
+    uint32_t magic;       /* 0 */
+    uint8_t  mdl_type;    /* 4 */
+    uint8_t  out_deq;     /* 5 */
+    uint16_t input_cnt;   /* 6 */
+    uint16_t output_cnt;  /* 8 */
+    uint16_t layer_cnt;   /* 10 */
+    uint32_t buf_size;    /* 12 – pingpong + keep */
+    uint32_t sub_size;    /* 16 */
+    uint16_t in_dims[4];  /* 20 – [ndim, h, w, c] */
+    uint16_t out_dims[4]; /* 28 */
+    uint8_t  _pad[28];    /* 36 – padding, total header = 64 */
 } tml_bin_t;
 
 /* ---- per‑layer header (48 bytes, on flash) ---- */
 typedef struct {
     uint16_t type;
     uint16_t is_out;
-    uint32_t size;           /* total layer size (hdr + body), 8‑aligned */
+    uint32_t size; /* total layer size (hdr + body), 8‑aligned */
     uint32_t in_oft;
     uint32_t out_oft;
     uint16_t in_dims[4];
     uint16_t out_dims[4];
-    int32_t  qp_mult;        /* pre‑computed requant multiplier  */
+    int32_t  qp_mult; /* pre‑computed requant multiplier  */
     int32_t  in_zp;
-    int32_t  qp_shift;       /* pre‑computed requant shift       */
+    int32_t  qp_shift; /* pre‑computed requant shift       */
     int32_t  out_zp;
 } tml_head_t;
 
 /* ---- conv2d / dwconv2d body ---- */
 typedef struct {
     tml_head_t h;
-    uint8_t  kernel_w, kernel_h;
-    uint8_t  stride_w, stride_h;
-    uint8_t  dilation_w, dilation_h;
-    uint16_t act;
-    uint8_t  pad[4];         /* top, bottom, left, right */
-    uint32_t depth_mul;      /* 0 → conv, >=1 → dwconv */
-    uint32_t _resv;
-    uint32_t ws_oft;         /* → per‑channel qp (int32[cho*2]) */
-    uint32_t w_oft;
-    uint32_t b_oft;
+    uint8_t    kernel_w, kernel_h;
+    uint8_t    stride_w, stride_h;
+    uint8_t    dilation_w, dilation_h;
+    uint16_t   act;
+    uint8_t    pad[4];    /* top, bottom, left, right */
+    uint32_t   depth_mul; /* 0 → conv, >=1 → dwconv */
+    uint32_t   _resv;
+    uint32_t   ws_oft; /* → per‑channel qp (int32[cho*2]) */
+    uint32_t   w_oft;
+    uint32_t   b_oft;
 } tml_conv_t;
 
 /* ---- fc body ---- */
 typedef struct {
     tml_head_t h;
-    uint32_t ws_oft;         /* dummy (qp in header) */
-    uint32_t w_oft;
-    uint32_t b_oft;
-    uint32_t _resv;
+    uint32_t   ws_oft; /* dummy (qp in header) */
+    uint32_t   w_oft;
+    uint32_t   b_oft;
+    uint32_t   _resv;
 } tml_fc_t;
 
 /* ---- add body ---- */
 typedef struct {
     tml_head_t h;
-    int32_t  in_oft1;
-    int32_t  in_zp1;
-    int32_t  _resv1;
-    int32_t  _resv2;
-    int32_t  qp1_mult;       /* in_s1 / out_s */
-    int32_t  qp1_shift;
-    int32_t  qp2_mult;       /* identity 1.0   */
-    int32_t  qp2_shift;
+    int32_t    in_oft1;
+    int32_t    in_zp1;
+    int32_t    _resv1;
+    int32_t    _resv2;
+    int32_t    qp1_mult; /* in_s1 / out_s */
+    int32_t    qp1_shift;
+    int32_t    qp2_mult; /* identity 1.0   */
+    int32_t    qp2_shift;
 } tml_add_t;
 
 /* gap / softmax / reshape have no extra body */
@@ -115,8 +115,8 @@ typedef struct {
 /* ------------------------------------------------------------------ */
 
 typedef struct {
-    int32_t mult;   /* multiplier (signed Q31 fixed‑point)   */
-    int32_t shift;  /* right‑shift amount after multiply      */
+    int32_t mult;  /* multiplier (signed Q31 fixed‑point)   */
+    int32_t shift; /* right‑shift amount after multiply      */
 } tml_qp_t;
 
 /* ------------------------------------------------------------------ */
@@ -128,24 +128,20 @@ typedef struct {
     uint16_t h;
     uint16_t w;
     uint16_t c;
-    union {
-        int8_t  *data;
-        float   *dataf;
-    };
+    int8_t  *data;
 } tml_tensor_t;
 
-#define TML_MATP(mat, y, x, ch) \
-    ((mat)->data + ((y) * (mat)->w + (x)) * (mat)->c + (ch))
+#define TML_MATP(mat, y, x, ch) ((mat)->data + ((y) * (mat)->w + (x)) * (mat)->c + (ch))
 
 /* ------------------------------------------------------------------ */
 /*  Opaque runtime handle                                              */
 /* ------------------------------------------------------------------ */
 
-struct TinyML_ {
-    const tml_bin_t *bin;        /* model in flash */
-    int8_t          *buf;       /* ping‑pong buffer */
-    int              own_buf;   /* 1 if alloc'd via mem_if */
-    memory_if        mem;        /* copied from create() — not a pointer */
+struct TinyML {
+    const tml_bin_t *bin;     /* model in flash */
+    int8_t          *buf;     /* ping‑pong buffer */
+    int              own_buf; /* 1 if alloc'd via mem_if */
+    ArenaHandle      arena;
     /* QP values are stored INLINE in the TMDL binary — no runtime cache. */
 };
 

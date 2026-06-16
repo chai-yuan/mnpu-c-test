@@ -123,7 +123,7 @@ print("=" * 56)
 # Convert TFLite -> TMDL with TinyML compiler
 # ---------------------------------------------------------------------------
 tmdl_path = os.path.join(OUT_DIR, "mnist_mlp_int8.tmdl")
-header_path = os.path.join(OUT_DIR, "mnist_mlp_int8.h")
+header_path = os.path.join(OUT_DIR, "mnist_mlp_int8.bin.h")
 
 # Call compiler programmatically (suppress sys.argv side effects)
 old_argv = sys.argv
@@ -234,7 +234,7 @@ for i in range(total):
         image_entries.append((name, img_int8.tobytes(), int(test_labels[i])))
 
 if image_entries:
-    write_test_images_header(image_entries, os.path.join(OUT_DIR, "test_images.h"))
+    write_test_images_header(image_entries, os.path.join(OUT_DIR, "test_images.bin.h"))
 
 acc = 100. * correct / total
 print(f"\nTest accuracy: {correct}/{total} ({acc:.2f}%)")

@@ -15,48 +15,36 @@
 #ifndef TINYML_H
 #define TINYML_H
 
-#include <stdint.h>
+#include "arena/arena.h"
 #include <stddef.h>
-#include "lib/interface/memory_if.h"
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/* ------------------------------------------------------------------ */
-/*  Error codes                                                        */
-/* ------------------------------------------------------------------ */
+#define TML_OK 0
+#define TML_ERR -1
+#define TML_ERR_MAGIC -2
+#define TML_ERR_MDLTYPE -3
+#define TML_ERR_OOM -4
+#define TML_ERR_LAYER -5
+#define TML_ERR_DIMS -6
+#define TML_ERR_PARAM -7
 
-#define TML_OK            0
-#define TML_ERR          -1
-#define TML_ERR_MAGIC    -2
-#define TML_ERR_MDLTYPE  -3
-#define TML_ERR_OOM      -4
-#define TML_ERR_LAYER    -5
-#define TML_ERR_DIMS     -6
-#define TML_ERR_PARAM    -7
-
-/* ------------------------------------------------------------------ */
-/*  Opaque handle                                                      */
-/* ------------------------------------------------------------------ */
-
-typedef struct TinyML_ TinyML;
-
-/* ------------------------------------------------------------------ */
-/*  API                                                                */
-/* ------------------------------------------------------------------ */
+typedef struct TinyML *TinyMLHandle;
 
 /**
- * Create a TinyML runtime instance — copies @p mem by value.
+ * Create a TinyML runtime instance.
  *
- * @param mem   Memory interface (must provide at least mem_alloc).
+ * @param arena Memory interface.
  * @param model Pointer to compiled TMDL model binary.
  * @return      Opaque handle, or NULL on error.
  */
-TinyML *TinyML_Create(const memory_if *mem, const uint8_t *model);
+TinyMLHandle TinyML_Create(ArenaHandle arena, const uint8_t *model);
 
 /** Destroy a runtime instance. */
-void TinyML_Destroy(TinyML *self);
+void TinyML_Destroy(TinyMLHandle self);
 
 /**
  * Run inference (integer‑only).
@@ -69,13 +57,13 @@ void TinyML_Destroy(TinyML *self);
  * @param output Output buffer, at least ``TinyML_GetOutputSize`` bytes.
  * @return       TML_OK on success, negative error code otherwise.
  */
-int TinyML_Run(TinyML *self, const int8_t *input, int8_t *output);
+int TinyML_Run(TinyMLHandle self, const int8_t *input, int8_t *output);
 
 /** Return number of input elements (H × W × C). */
-int TinyML_GetInputSize(TinyML *self);
+int TinyML_GetInputSize(TinyMLHandle self);
 
 /** Return number of output elements. */
-int TinyML_GetOutputSize(TinyML *self);
+int TinyML_GetOutputSize(TinyMLHandle self);
 
 #ifdef __cplusplus
 }

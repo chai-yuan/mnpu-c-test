@@ -19,19 +19,21 @@
 /* ---------- 静态资源 ---------- */
 static uint8_t arena_buffer[2048];
 
-static uint32_t g_file_size = 0;
-static uint32_t g_recv_len = 0;
-static char g_file_name[64] = {0};
-static bool g_recv_success = false;
+static uint32_t g_file_size     = 0;
+static uint32_t g_recv_len      = 0;
+static char     g_file_name[64] = {0};
+static bool     g_recv_success  = false;
 
 /* ---------- 串口 IO 适配 ---------- */
 static int32_t uart_read(void *self, uint8_t *buf, size_t len) {
     (void)self;
-    if (!port_global.getchar) return IO_ERR_GENERIC;
+    if (!port_global.getchar)
+        return IO_ERR_GENERIC;
 
     for (size_t i = 0; i < len; i++) {
         int ch = port_global.getchar();
-        if (ch < 0) return IO_ERR_GENERIC;
+        if (ch < 0)
+            return IO_ERR_GENERIC;
         buf[i] = (uint8_t)ch;
     }
     return (int32_t)len;
@@ -39,7 +41,8 @@ static int32_t uart_read(void *self, uint8_t *buf, size_t len) {
 
 static int32_t uart_write(void *self, const uint8_t *buf, size_t len) {
     (void)self;
-    if (!port_global.putchar) return IO_ERR_GENERIC;
+    if (!port_global.putchar)
+        return IO_ERR_GENERIC;
 
     for (size_t i = 0; i < len; i++) {
         port_global.putchar((char)buf[i]);
@@ -53,8 +56,8 @@ static int32_t on_file_begin(void *ctx, const char *file_name, uint32_t file_siz
     // 记录文件名和大小
     strncpy(g_file_name, file_name, sizeof(g_file_name) - 1);
     g_file_size = file_size;
-    g_recv_len = 0;
-    
+    g_recv_len  = 0;
+
     // 如果文件超过了目标内存大小，拒绝接收
     if (file_size > TARGET_SIZE) {
         return -1; // 返回非 0 拒绝接收
@@ -90,7 +93,8 @@ static void jump_to_target(void) {
 int main(void) {
     /* 创建 Arena 分配器 */
     Arena arena = Arena_Create(arena_buffer, sizeof(arena_buffer));
-    if (!arena) return 1;
+    if (!arena)
+        return 1;
     memory_if mem_if = Arena_GetMemoryIf(arena);
 
     /* IO 接口 */
@@ -113,7 +117,8 @@ int main(void) {
     };
 
     Ymodem ym = Ymodem_Create(&mem_if, &io, &cfg);
-    if (!ym) return 1;
+    if (!ym)
+        return 1;
 
     /* 阻塞接收，这期间无论终端发什么，只会安静地处理协议 */
     int32_t ret = Ymodem_Receive(ym, NULL);

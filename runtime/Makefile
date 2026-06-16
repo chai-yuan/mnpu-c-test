@@ -14,7 +14,7 @@ $(shell mkdir -p $(DST_DIR))
 
 RUNTIME_DIR := $(realpath $(dir $(lastword $(MAKEFILE_LIST))))
 
-SRCS 	+= $(wildcard $(RUNTIME_DIR)/lib/*.c)
+# SRCS 	+= $(wildcard $(RUNTIME_DIR)/lib/*.c)
 CFLAGS  += -g -I$(PROJ_DIR) -I$(RUNTIME_DIR)
 LDFLAGS +=
 

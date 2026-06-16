@@ -15,7 +15,7 @@ set -euo pipefail
 CLANG_FORMAT_NAME=".clang-format"
 
 # --- 默认格式化目录（相对于项目根目录） ---
-DEFAULT_DIRS=("firmware" "hello" "mnist-fc" "runtime" "mnist-int8")
+DEFAULT_DIRS=("firmware" "hello" "TinyML" "runtime" "mnist-int8")
 
 # --- 需要格式化的文件扩展名 ---
 EXTENSIONS=("c" "h" "cpp" "hpp" "cc" "cxx")

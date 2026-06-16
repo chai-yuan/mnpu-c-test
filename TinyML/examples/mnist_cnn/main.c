@@ -1,18 +1,20 @@
 /*
- * MNIST MLP inference example using the TinyML runtime.
+ * MNIST CNN inference example using the TinyML runtime.
+ *
+ * Architecture: Conv2D(8,3,s1) → Conv2D(8,3,s2) → Conv2D(16,3,s2)
+ *               → GAP → Dense(10,softmax)
  *
  * Model + images are baked-in as const arrays (no file I/O, no malloc).
  * The runtime uses arena allocation – a single static buffer.
  */
 
-#include "out/mnist_mlp_int8.bin.h"
+#include "out/mnist_cnn_int8.bin.h"
 #include "out/test_images.bin.h"
-#include "tinyml/internal.h"
 #include "tinyml/tinyml.h"
 #include <stdio.h>
 #include <string.h>
 
-#define ARENA_SIZE 2048
+#define ARENA_SIZE 20480
 
 static uint8_t arena_buf[ARENA_SIZE];
 
@@ -32,7 +34,7 @@ int main(void) {
     int in_sz  = TinyML_GetInputSize(ml);
     int out_sz = TinyML_GetOutputSize(ml);
 
-    printf("TinyML MNIST MLP (INT8)\n");
+    printf("TinyML MNIST CNN (INT8)\n");
     printf("  Input  : %d elements\n", in_sz);
     printf("  Output : %d elements\n", out_sz);
     printf("  Images : %d\n\n", TEST_IMAGE_COUNT);

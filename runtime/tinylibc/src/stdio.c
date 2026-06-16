@@ -5,9 +5,9 @@
 
 /* ---------- 输出上下文：支持串口输出或字符串缓冲 ---------- */
 struct out_ctx {
-    char  *buf;   /* 非 NULL 时写入缓冲区 */
-    size_t len;   /* 缓冲区总大小 */
-    size_t pos;   /* 当前已写入位置 */
+    char  *buf; /* 非 NULL 时写入缓冲区 */
+    size_t len; /* 缓冲区总大小 */
+    size_t pos; /* 当前已写入位置 */
 };
 
 static void out_putc(struct out_ctx *o, char c) {
@@ -144,7 +144,7 @@ int printf(const char *fmt, ...) {
 int snprintf(char *buf, size_t len, const char *fmt, ...) {
     va_list args;
     va_start(args, fmt);
-    struct out_ctx o = { buf, len, 0 };
+    struct out_ctx o = {buf, len, 0};
     vformat(&o, fmt, args);
     if (len > 0)
         buf[o.pos < len ? o.pos : len - 1] = '\0';

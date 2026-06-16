@@ -139,7 +139,7 @@ def main(args=None):
     if ns.c_header is True:
         # -H alone → auto‑name next to .tmdl
         base = ns.output.rsplit(".", 1)[0]
-        c_header = base + ".h"
+        c_header = base + ".bin.h"
     elif isinstance(ns.c_header, str):
         c_header = ns.c_header
 

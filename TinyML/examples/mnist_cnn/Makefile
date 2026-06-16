@@ -1,4 +1,4 @@
-NAME = tinyml-mnist-mlp
+NAME = tinyml-mnist-cnn
 TOP_DIR = $(realpath $(dir ../../))
 
 CFLAGS += -I$(TOP_DIR)
