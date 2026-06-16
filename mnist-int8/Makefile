@@ -1,4 +1,4 @@
 NAME = mnist-int8
 ACCE ?= soft
-SRCS = main-test.c model.c model-$(ACCE).c
+SRCS = main-rt.c model.c model-$(ACCE).c
 include ../runtime/Makefile
