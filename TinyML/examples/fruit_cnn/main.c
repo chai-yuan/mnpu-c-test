@@ -13,6 +13,7 @@
 #include "tinyml/tinyml.h"
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #define ARENA_SIZE (128 * 1024)
 
@@ -42,11 +43,17 @@ int main(void) {
 
     int    correct = 0;
     int8_t output[5];
+    clock_t total_ticks = 0;
 
     for (int i = 0; i < TEST_IMAGE_COUNT; i++) {
         const test_image_t *img = &test_images[i];
 
+        clock_t start = clock();
         int ret = TinyML_Run(ml, img->data, output);
+        clock_t end   = clock();
+        clock_t ticks = end - start;
+        total_ticks += ticks;
+
         if (ret != TML_OK) {
             printf("[%d] ERR: inference returned %d\n", i, ret);
             continue;
@@ -64,14 +71,37 @@ int main(void) {
         int match = (predicted == img->label);
         correct += match;
 
-        printf("[%d] %-35s  pred=%d (%-12s)  label=%d (%-12s)  %s\n",
+        unsigned long us   = (unsigned long)ticks * 1000000 / CLOCKS_PER_SEC;
+        unsigned long ms   = us / 1000;
+        unsigned long frac = us % 1000;
+
+        printf("[%d] %s  pred=%d (%s)  label=%d (%s)  %s  time=%lu.",
                i, img->name,
                predicted, (predicted >= 0 && predicted < 5) ? TEST_LABEL_NAMES[predicted] : "?",
                img->label, TEST_LABEL_NAMES[img->label],
-               match ? "OK" : "MISMATCH");
+               match ? "OK" : "MISMATCH",
+               ms);
+        if (frac < 100) printf("0");
+        if (frac < 10)  printf("0");
+        printf("%lu ms\n", frac);
     }
 
-    printf("\nAccuracy: %d/%d\n", correct, TEST_IMAGE_COUNT);
+    {
+        unsigned long total_us   = (unsigned long)total_ticks * 1000000 / CLOCKS_PER_SEC;
+        unsigned long total_ms   = total_us / 1000;
+        unsigned long total_frac = total_us % 1000;
+        unsigned long avg_us     = total_us / TEST_IMAGE_COUNT;
+        unsigned long avg_ms     = avg_us / 1000;
+        unsigned long avg_frac   = avg_us % 1000;
+        printf("\nAccuracy: %d/%d\n", correct, TEST_IMAGE_COUNT);
+        printf("Total inference time: %lu.", total_ms);
+        if (total_frac < 100) printf("0");
+        if (total_frac < 10)  printf("0");
+        printf("%lu ms  (avg: %lu.", total_frac, avg_ms);
+        if (avg_frac < 100) printf("0");
+        if (avg_frac < 10)  printf("0");
+        printf("%lu ms)\n", avg_frac);
+    }
 
     TinyML_Destroy(ml);
 
