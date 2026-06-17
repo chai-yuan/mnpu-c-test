@@ -27,9 +27,18 @@ static int uart_getchar(void) { return -1; }
 /* ------------------------------------------------------------------ */
 
 static uint64_t read_mcycle(void) {
-    uint32_t val;
-    __asm__ __volatile__("csrr %0, mcycle" : "=r"(val));
-    return (uint64_t)val;
+    /* On RV32, mcycle is a 64‑bit counter split across two CSRs:
+     *   mcycle  (0xB00) – lower 32 bits
+     *   mcycleh (0xB80) – upper 32 bits
+     * We must read hi/lo/hi to guard against a carry from lo→hi
+     * between the two reads.                                      */
+    uint32_t hi1, lo, hi2;
+    do {
+        __asm__ __volatile__("csrr %0, mcycleh" : "=r"(hi1));
+        __asm__ __volatile__("csrr %0, mcycle" : "=r"(lo));
+        __asm__ __volatile__("csrr %0, mcycleh" : "=r"(hi2));
+    } while (hi1 != hi2);
+    return ((uint64_t)hi1 << 32) | lo;
 }
 
 int main(void);

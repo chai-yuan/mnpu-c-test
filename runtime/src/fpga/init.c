@@ -23,13 +23,22 @@ static int uart_getchar(void) {
     return (int)(data & 0xFF);
 }
 
-#define TIMER_BASE 0x20000000UL
-#define TIMER_READ (*(volatile unsigned int *)(TIMER_BASE + 0x0))
+// #define TIMER_BASE 0x20000000UL
+// #define TIMER_READ (*(volatile unsigned int *)(TIMER_BASE + 0x0))
 
 static uint64_t read_time(void) {
-    // uint32_t val = TIMER_READ;
-    // return (uint64_t)val;
-    return 0;
+    uint32_t cycle_hi, cycle_lo, cycle_hi_check;
+    uint64_t total_cycles;
+
+    do {
+        __asm__ volatile ("rdcycleh %0" : "=r" (cycle_hi));
+        __asm__ volatile ("rdcycle  %0" : "=r" (cycle_lo));
+        __asm__ volatile ("rdcycleh %0" : "=r" (cycle_hi_check));
+    } while (cycle_hi != cycle_hi_check);
+
+    total_cycles = ((uint64_t)cycle_hi << 32) | cycle_lo;
+
+    return total_cycles / 50;
 }
 
 int main(void);

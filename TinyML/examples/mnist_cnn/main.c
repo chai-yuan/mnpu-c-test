@@ -70,7 +70,7 @@ int main(void) {
         int match = (predicted == img->label);
         correct += match;
 
-        unsigned long us   = (unsigned long)ticks * 1000000 / CLOCKS_PER_SEC;
+        unsigned long us   = (unsigned long)ticks;
         unsigned long ms   = us / 1000;
         unsigned long frac = us % 1000;
 
@@ -84,7 +84,7 @@ int main(void) {
     }
 
     {
-        unsigned long total_us   = (unsigned long)total_ticks * 1000000 / CLOCKS_PER_SEC;
+        unsigned long total_us   = (unsigned long)total_ticks;
         unsigned long total_ms   = total_us / 1000;
         unsigned long total_frac = total_us % 1000;
         unsigned long avg_us     = total_us / TEST_IMAGE_COUNT;

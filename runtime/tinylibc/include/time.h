@@ -1,9 +1,11 @@
 #ifndef _TIME_H
 #define _TIME_H
 
+#include <stdint.h>
+
 #ifndef _CLOCK_T_DEFINED
 #define _CLOCK_T_DEFINED
-typedef unsigned long clock_t;
+typedef uint64_t clock_t;
 #endif
 
 #ifndef CLOCKS_PER_SEC
