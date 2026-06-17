@@ -15,7 +15,7 @@
 #include <string.h>
 #include <time.h>
 
-#define ARENA_SIZE (128 * 1024)
+#define ARENA_SIZE (70 * 1024)
 
 static uint8_t arena_buf[ARENA_SIZE];
 

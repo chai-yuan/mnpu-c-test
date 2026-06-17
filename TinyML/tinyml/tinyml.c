@@ -9,23 +9,23 @@
 #include <string.h>
 
 /* ------------------------------------------------------------------ */
-/*  Arch helpers – declared here, defined in arch/soft.c               */
+/*  Arch helpers – declared here, defined in arch/{soft,zve32x,...}.c  */
 /* ------------------------------------------------------------------ */
-int tml_soft_conv2d(const tml_tensor_t *in, tml_tensor_t *out, const int8_t *w, const int32_t *b, const int32_t *qp,
+int tml_arch_conv2d(const tml_tensor_t *in, tml_tensor_t *out, const int8_t *w, const int32_t *b, const int32_t *qp,
                     int8_t kw, int8_t kh, int8_t sx, int8_t sy, int8_t dx, int8_t dy, uint16_t act, uint8_t pt,
                     uint8_t pb, uint8_t pl, uint8_t pr, uint32_t dmul, int32_t in_zp, int32_t out_zp);
 
-int tml_soft_fc(const tml_tensor_t *in, tml_tensor_t *out, const int8_t *w, const int32_t *b, int32_t qp_mult,
+int tml_arch_fc(const tml_tensor_t *in, tml_tensor_t *out, const int8_t *w, const int32_t *b, int32_t qp_mult,
                 int32_t qp_shift, int32_t out_zp);
 
-int tml_soft_gap(const tml_tensor_t *in, tml_tensor_t *out, int32_t qp_mult, int32_t qp_shift, int32_t in_zp,
+int tml_arch_gap(const tml_tensor_t *in, tml_tensor_t *out, int32_t qp_mult, int32_t qp_shift, int32_t in_zp,
                  int32_t out_zp);
 
-int tml_soft_softmax(const tml_tensor_t *in, tml_tensor_t *out, int32_t in_zp, int32_t out_zp);
+int tml_arch_softmax(const tml_tensor_t *in, tml_tensor_t *out, int32_t in_zp, int32_t out_zp);
 
-int tml_soft_reshape(const tml_tensor_t *in, tml_tensor_t *out);
+int tml_arch_reshape(const tml_tensor_t *in, tml_tensor_t *out);
 
-int tml_soft_add(const tml_tensor_t *in0, const tml_tensor_t *in1, tml_tensor_t *out, int32_t qp0_mult,
+int tml_arch_add(const tml_tensor_t *in0, const tml_tensor_t *in1, tml_tensor_t *out, int32_t qp0_mult,
                  int32_t qp0_shift, int32_t in_zp0, int32_t qp1_mult, int32_t qp1_shift, int32_t in_zp1,
                  int32_t out_zp);
 
@@ -129,14 +129,14 @@ int TinyML_Run(TinyMLHandle self, const int8_t *input, int8_t *output) {
             const int32_t    *b  = (const int32_t *)(layer_body + c->b_oft);
             const int32_t    *qp = (const int32_t *)(layer_body + c->ws_oft);
 
-            ret = tml_soft_conv2d(&tin, &tout, w, b, qp, (int8_t)c->kernel_w, (int8_t)c->kernel_h, (int8_t)c->stride_w,
+            ret = tml_arch_conv2d(&tin, &tout, w, b, qp, (int8_t)c->kernel_w, (int8_t)c->kernel_h, (int8_t)c->stride_w,
                                   (int8_t)c->stride_h, (int8_t)c->dilation_w, (int8_t)c->dilation_h, c->act, c->pad[0],
                                   c->pad[1], c->pad[2], c->pad[3], c->depth_mul, h->in_zp, h->out_zp);
             break;
         }
 
         case TML_GAP: {
-            ret = tml_soft_gap(&tin, &tout, h->qp_mult, h->qp_shift, h->in_zp, h->out_zp);
+            ret = tml_arch_gap(&tin, &tout, h->qp_mult, h->qp_shift, h->in_zp, h->out_zp);
             break;
         }
 
@@ -144,17 +144,17 @@ int TinyML_Run(TinyMLHandle self, const int8_t *input, int8_t *output) {
             const tml_fc_t *fc = (const tml_fc_t *)h;
             const int8_t   *w  = (const int8_t *)(layer_body + fc->w_oft);
             const int32_t  *b  = (const int32_t *)(layer_body + fc->b_oft);
-            ret                = tml_soft_fc(&tin, &tout, w, b, h->qp_mult, h->qp_shift, h->out_zp);
+            ret                = tml_arch_fc(&tin, &tout, w, b, h->qp_mult, h->qp_shift, h->out_zp);
             break;
         }
 
         case TML_SOFTMAX: {
-            ret = tml_soft_softmax(&tin, &tout, h->in_zp, h->out_zp);
+            ret = tml_arch_softmax(&tin, &tout, h->in_zp, h->out_zp);
             break;
         }
 
         case TML_RESHAPE: {
-            ret = tml_soft_reshape(&tin, &tout);
+            ret = tml_arch_reshape(&tin, &tout);
             break;
         }
 
@@ -162,7 +162,7 @@ int TinyML_Run(TinyMLHandle self, const int8_t *input, int8_t *output) {
             const tml_add_t *a = (const tml_add_t *)h;
             /* second input tensor (KEEP) */
             dims_to_tensor(&tin1, (int8_t *)(self->buf + a->in_oft1), h->in_dims);
-            ret = tml_soft_add(&tin, &tin1, &tout, h->qp_mult, h->qp_shift, h->in_zp, a->qp1_mult, a->qp1_shift,
+            ret = tml_arch_add(&tin, &tin1, &tout, h->qp_mult, h->qp_shift, h->in_zp, a->qp1_mult, a->qp1_shift,
                                a->in_zp1, h->out_zp);
             break;
         }

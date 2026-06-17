@@ -101,7 +101,7 @@ static inline int8_t requant(int32_t sum, int32_t mult, int32_t shift, int32_t z
 /*  CONV2D / DWCONV2D  –  shared implementation                        */
 /* ------------------------------------------------------------------ */
 
-int tml_soft_conv2d(const tml_tensor_t *in, tml_tensor_t *out, const int8_t *w, const int32_t *b, const int32_t *qp,
+int tml_arch_conv2d(const tml_tensor_t *in, tml_tensor_t *out, const int8_t *w, const int32_t *b, const int32_t *qp,
                     int8_t kw, int8_t kh, int8_t sx, int8_t sy, int8_t dx, int8_t dy, uint16_t act, uint8_t pt,
                     uint8_t pb, uint8_t pl, uint8_t pr, uint32_t dmul, int32_t in_zp, int32_t out_zp) {
     int     maxk = (int)kw * kh;
@@ -205,7 +205,7 @@ int tml_soft_conv2d(const tml_tensor_t *in, tml_tensor_t *out, const int8_t *w, 
 /*  GAP – Global Average Pooling                                        */
 /* ------------------------------------------------------------------ */
 
-int tml_soft_gap(const tml_tensor_t *in, tml_tensor_t *out, int32_t qp_mult, int32_t qp_shift, int32_t in_zp,
+int tml_arch_gap(const tml_tensor_t *in, tml_tensor_t *out, int32_t qp_mult, int32_t qp_shift, int32_t in_zp,
                  int32_t out_zp) {
     int ih         = (int)in->h;
     int iw         = (int)in->w;
@@ -241,7 +241,7 @@ int tml_soft_gap(const tml_tensor_t *in, tml_tensor_t *out, int32_t qp_mult, int
 /*  FC – Fully Connected                                                */
 /* ------------------------------------------------------------------ */
 
-int tml_soft_fc(const tml_tensor_t *in, tml_tensor_t *out, const int8_t *w, const int32_t *b, int32_t qp_mult,
+int tml_arch_fc(const tml_tensor_t *in, tml_tensor_t *out, const int8_t *w, const int32_t *b, int32_t qp_mult,
                 int32_t qp_shift, int32_t out_zp) {
     int ic = (int)in->c;
     int oc = (int)out->c;
@@ -264,7 +264,7 @@ int tml_soft_fc(const tml_tensor_t *in, tml_tensor_t *out, const int8_t *w, cons
 /*  SOFTMAX  –  arg‑max style (matches public API contract)             */
 /* ------------------------------------------------------------------ */
 
-int tml_soft_softmax(const tml_tensor_t *in, tml_tensor_t *out, int32_t in_zp, int32_t out_zp) {
+int tml_arch_softmax(const tml_tensor_t *in, tml_tensor_t *out, int32_t in_zp, int32_t out_zp) {
     int     nc   = (int)in->c;
     int     best = 0;
     int32_t maxv = (int32_t)in->data[0] - in_zp;
@@ -288,7 +288,7 @@ int tml_soft_softmax(const tml_tensor_t *in, tml_tensor_t *out, int32_t in_zp, i
 /*  RESHAPE  –  copy data verbatim                                      */
 /* ------------------------------------------------------------------ */
 
-int tml_soft_reshape(const tml_tensor_t *in, tml_tensor_t *out) {
+int tml_arch_reshape(const tml_tensor_t *in, tml_tensor_t *out) {
     int sz = (int)in->h * in->w * in->c;
     memcpy(out->data, in->data, (size_t)sz);
     return 0;
@@ -298,7 +298,7 @@ int tml_soft_reshape(const tml_tensor_t *in, tml_tensor_t *out) {
 /*  ADD  –  element‑wise with per‑input re‑quantisation                 */
 /* ------------------------------------------------------------------ */
 
-int tml_soft_add(const tml_tensor_t *in0, const tml_tensor_t *in1, tml_tensor_t *out, int32_t qp0_mult,
+int tml_arch_add(const tml_tensor_t *in0, const tml_tensor_t *in1, tml_tensor_t *out, int32_t qp0_mult,
                  int32_t qp0_shift, int32_t in_zp0, int32_t qp1_mult, int32_t qp1_shift, int32_t in_zp1,
                  int32_t out_zp) {
     /*
