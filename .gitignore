@@ -10,5 +10,6 @@ out/
 *.pt
 *.pyc
 *.bin.h
+*.jpg
 
 compile_commands.json
