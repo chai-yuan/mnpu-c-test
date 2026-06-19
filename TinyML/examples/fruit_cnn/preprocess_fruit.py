@@ -31,6 +31,7 @@ def get_quant_params():
         interp.allocate_tensors()
         idet = interp.get_input_details()[0]
         scale, zero_point = idet['quantization']
+        print(f"scale {scale}, zero_point {zero_point}")
         return scale, zero_point
     except Exception:
         # Fallback: typical INT8 quantization for [0,1] range

@@ -105,6 +105,8 @@ idet = interp.get_input_details()[0]
 odet = interp.get_output_details()[0]
 iscale, izp = idet['quantization']
 
+print(f'scale {iscale}, zp {izp}')
+
 correct = 0
 total   = len(x_test)
 picks   = set(random.sample(range(total), num_test_bins))

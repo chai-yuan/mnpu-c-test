@@ -5,17 +5,17 @@ and export INT8 TMDL model.
 Architecture (balanced stride-1 / stride-2 convs, no MaxPool):
 
   Input(64, 64, 1)
-  Conv2D(24, 3x3, s1, same, relu)  -> 64x64x24
-  Conv2D(24, 3x3, s2, same, relu)  -> 32x32x24
-  Conv2D(48, 3x3, s1, same, relu)  -> 32x32x48
-  Conv2D(48, 3x3, s2, same, relu)  -> 16x16x48
-  Conv2D(96, 3x3, s2, same, relu)  -> 8x8x96
-  GlobalAveragePooling2D()          -> 96
+  Conv2D(16, 3x3, s1, same, relu)  -> 64x64x16
+  Conv2D(16, 3x3, s2, same, relu)  -> 32x32x16
+  Conv2D(32, 3x3, s1, same, relu)  -> 32x32x32
+  Conv2D(32, 3x3, s2, same, relu)  -> 16x16x32
+  Conv2D(64, 3x3, s2, same, relu)  -> 8x8x64
+  GlobalAveragePooling2D()          -> 64
   Dense(5, softmax)                 -> 5
 
 Key improvements over v1:
   - Stride-1 layers preserve spatial info before each downsample
-  - More filters (24→24→48→48→96 vs 16→32→64)
+  - Reduced filters (16→16→32→32→64) for faster inference
   - Fixed normalisation: (x + 80) / 80  (consistent with preprocess)
   - SpecAugment-style data augmentation on spectrograms
   - Learning-rate schedule (ReduceLROnPlateau)
@@ -173,19 +173,19 @@ def build():
         tf.keras.Input(shape=(64, 64, 1)),
 
         # Block 1: 64×64
-        tf.keras.layers.Conv2D(24, 3, 1, 'same', activation='relu',
+        tf.keras.layers.Conv2D(16, 3, 1, 'same', activation='relu',
                                kernel_initializer='he_normal'),
         # Block 2: 64×64 → 32×32
-        tf.keras.layers.Conv2D(24, 3, 2, 'same', activation='relu',
+        tf.keras.layers.Conv2D(16, 3, 2, 'same', activation='relu',
                                kernel_initializer='he_normal'),
         # Block 3: 32×32
-        tf.keras.layers.Conv2D(48, 3, 1, 'same', activation='relu',
+        tf.keras.layers.Conv2D(32, 3, 1, 'same', activation='relu',
                                kernel_initializer='he_normal'),
         # Block 4: 32×32 → 16×16
-        tf.keras.layers.Conv2D(48, 3, 2, 'same', activation='relu',
+        tf.keras.layers.Conv2D(32, 3, 2, 'same', activation='relu',
                                kernel_initializer='he_normal'),
         # Block 5: 16×16 → 8×8
-        tf.keras.layers.Conv2D(96, 3, 2, 'same', activation='relu',
+        tf.keras.layers.Conv2D(64, 3, 2, 'same', activation='relu',
                                kernel_initializer='he_normal'),
 
         tf.keras.layers.GlobalAveragePooling2D(),
